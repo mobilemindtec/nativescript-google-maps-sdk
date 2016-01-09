@@ -115,9 +115,42 @@ var MapView = (function (_super) {
 
     this._android = new com.google.android.gms.maps.MapView(this._context, options);
 
+
     this._android.onCreate(null);
     this._android.onResume();
     var self = this
+
+    /*
+    var zoomParams = new android.widget.RelativeLayout.LayoutParams(
+            android.widget.RelativeLayout.LayoutParams.FILL_PARENT, android.widget.RelativeLayout.LayoutParams.FILL_PARENT);
+    var controlls = this._android.findViewById(0x1);
+  
+    controlls.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.LEFT);
+
+
+    zoomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM);
+    zoomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_LEFT);
+
+    var margin = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, 10,
+            this._context.getResources().getDisplayMetrics());
+    zoomParams.setMargins(margin, margin, margin, margin);
+    controlls.setLayoutParams(zoomParams);
+
+
+    var controll2 = this._android.findViewById(0x4);
+    console.log("#################### >>> " + controll2)
+    */
+    
+    if(this.zoonMargin){
+      var zoomControls = this._android.findViewById(0x1);        
+      var params = zoomControls.getLayoutParams();
+      var margin = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, this.zoonMargin,
+              this._context.getResources().getDisplayMetrics());
+      params.setMargins(margin, margin, margin, margin);
+      zoomControls.setLayoutParams(params)      
+    }
+    
+
 
     var mapReadyCallback = new com.google.android.gms.maps.OnMapReadyCallback({
       onMapReady: function (gMap) {
@@ -139,6 +172,17 @@ var MapView = (function (_super) {
   };
 
   MapView.prototype._createCameraPosition = function() {
+
+    if(isNaN(this.latitude) || isNaN(this.longitude)){
+      console.log("## not latitude or longitude")
+      return
+    }
+
+    if(this.latitude == 0 || this.longitude == 0){
+      console.log("## latitude or longitude equals 0")
+      return
+    }
+
     var cpBuilder = new com.google.android.gms.maps.model.CameraPosition.Builder();
     var update = false;
 
@@ -166,18 +210,25 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype.updateCamera = function() {
-    var cameraPosition = this._createCameraPosition();
-    if(!cameraPosition) return;
 
-    if(!this._gMap) {
-      this._pendingCameraUpdate = true
-      return;
+    if(this.latitude && this.longitude && this.latitude != 0 && this.longitude != 0){
+
+      var cameraPosition = this._createCameraPosition();
+      if(!cameraPosition) return;
+
+      if(!this._gMap) {
+        this._pendingCameraUpdate = true
+        return;
+      }
+
+      this._pendingCameraUpdate = false;
+
+      var cameraUpdate = com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(cameraPosition);
+      this.gMap.moveCamera(cameraUpdate);
+
+    }else{
+      console.log("## not updateCamera latitude=" + this.latitude + ", longitude=" + this.longitude)
     }
-
-    this._pendingCameraUpdate = false;
-
-    var cameraUpdate = com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(cameraPosition);
-    this.gMap.moveCamera(cameraUpdate);
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
@@ -188,6 +239,7 @@ var MapView = (function (_super) {
       uiSettings.setTiltGesturesEnabled(true);
       uiSettings.setRotateGesturesEnabled(true);
       uiSettings.setCompassEnabled(true);
+      uiSettings.setIndoorLevelPickerEnabled(true);
   };
 
   MapView.prototype.addMarker = function(opts) {
@@ -195,11 +247,13 @@ var MapView = (function (_super) {
     if(this.draggable == undefined || this.draggable == null)
       this.draggable = false
 
-    if(opts.latitude)
+    if(opts.latitude && opts.longitude){
+      this.latitude = undefined
+      this.longitude = undefined
+      
       this.latitude = opts.latitude
-    
-    if(opts.longitude)
       this.longitude = opts.longitude
+    }    
 
     if(opts.title)
       this.title = opts.title
@@ -207,8 +261,10 @@ var MapView = (function (_super) {
     if(opts.snippet)
       this.snippet = opts.snippet
 
-    if(!this.defaultIcon)
+    if(!opts.iconPath)
       this.defaultIcon = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
+    else
+      this.defaultIcon  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)
 
     if(!this.mapType)
       this.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_HYBRID
@@ -216,8 +272,14 @@ var MapView = (function (_super) {
     if(opts.clear)
       this._gMap.clear()
 
+    console.log("###################################")
+    console.log("################ this.latitude=" + this.latitude)
+    console.log("################ this.longitude=" + this.longitude)
     console.log("################ this.title=" + this.title)
     console.log("################ this.snippet=" + this.snippet)
+    console.log("###################################")
+
+    this._gMap.setInfoWindowAdapter(createCustonWindowMarker(opts.windowImgPath));
 
     var markerOptions = new com.google.android.gms.maps.model.MarkerOptions();
     markerOptions.title(this.title);
@@ -226,8 +288,15 @@ var MapView = (function (_super) {
     markerOptions.position(latLng);
     markerOptions.draggable(this.draggable);
     markerOptions.icon(this.defaultIcon);
-    this._gMap.addMarker(markerOptions);
+    var marker = this._gMap.addMarker(markerOptions);
     this._gMap.setMapType(this.mapType);
+
+
+    if(opts.showWindow){
+      marker.showInfoWindow()
+    }
+
+
 
     if(this.draggable)
       this._gMap.setOnMarkerDragListener(_onMarkerDragListener)    
@@ -265,6 +334,7 @@ var MapView = (function (_super) {
 
     var locationListener = new android.location.LocationListener({
       onLocationChanged: function(location){
+
         console.log("############# location updated to " + location)
 
 
@@ -354,6 +424,73 @@ var MapView = (function (_super) {
   function capitalize(text) {
     return text.replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
   };
+
+  function createCustonWindowMarker(windowImgPath){
+
+    return new com.google.android.gms.maps.GoogleMap.InfoWindowAdapter({
+
+        badge: windowImgPath,
+          
+        getInfoWindow: function(marker) {
+            var ctx = application.android.context
+            var custom_info_window = ctx.getResources().getIdentifier('custom_info_window', "layout", ctx.getPackageName());
+            var mWindow = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
+            this.render(marker, mWindow);
+            return mWindow;
+        },
+
+        getInfoContents: function(marker) {
+          var ctx = application.android.context
+            var custom_info_contents = ctx.getResources().getIdentifier('custom_info_contents', "layout", ctx.getPackageName());
+            var mContents = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
+            this.render(marker, mContents);
+            return mContents;
+        },
+
+        render: function(marker, view) {
+
+            var ctx = application.android.context
+            
+            console.log("### this.badge=" + this.badge)
+
+            if(this.badge){
+              var bitmap = android.graphics.BitmapFactory.decodeFile(this.badge);
+              var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
+              console.log("### badge_id=" + badge_id) 
+              console.log("### bitmap=" + bitmap) 
+              console.log("### view.findViewById(badge_id)=" + view.findViewById(badge_id))
+              view.findViewById(badge_id).setImageBitmap(bitmap);              
+              
+            } 
+
+            var title = marker.getTitle();
+            var title_id = ctx.getResources().getIdentifier('title', "id", ctx.getPackageName());
+            var titleUi = view.findViewById(title_id);
+
+            if (title != null) {
+                // Spannable string allows us to edit the formatting of the text.
+                var titleText = new android.text.SpannableString(title);
+                //titleText.setSpan(new android.text.style.ForegroundColorSpan(Color.RED), 0, titleText.length(), 0);
+                titleUi.setText(titleText);
+            } else {
+                titleUi.setText("");
+            }
+
+            var snippet = marker.getSnippet();
+            var snippet_id = ctx.getResources().getIdentifier('snippet', "id", ctx.getPackageName());
+            var snippetUi = view.findViewById(snippet_id);
+
+            if (snippet) {
+                var snippetText = new android.text.SpannableString(snippet);
+                //snippetText.setSpan(new ForegroundColorSpan(Color.MAGENTA), 0, 10, 0);
+                //snippetText.setSpan(new ForegroundColorSpan(Color.BLUE), 12, snippet.length(), 0);
+                snippetUi.setText(snippetText);
+            } else {
+                snippetUi.setText("");
+            }
+        },
+    })    
+  }
 
   return MapView;
 

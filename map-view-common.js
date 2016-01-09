@@ -3,7 +3,7 @@ var dObservable = require("ui/core/dependency-observable");
 var proxy = require("ui/core/proxy");
 
 var MAPVIEW = "MapView";
-var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType" ];
+var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin"];
 
 var MapView = (function (_super) {
   global.__extends(MapView, _super);
@@ -64,8 +64,18 @@ var MapView = (function (_super) {
         return this._getValue( property );
       },
       set: function( value ) {
-        //var parsedValue = parseFloat( value);
-        this._setValue( property, value );
+        var parsedValue = value
+
+        if(value && (name == 'latitude' || name == 'longitude')){
+
+          if(value && !isNaN(value) && value.length > 16)
+            parsedValue = Number(value.substring(0, 16))
+          else
+            parsedValue = Number(value);
+
+        }
+
+        this._setValue( property, parsedValue);
       }
     });
   });
