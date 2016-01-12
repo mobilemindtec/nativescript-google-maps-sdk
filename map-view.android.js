@@ -17,10 +17,13 @@ var MapView = (function (_super) {
     _super.apply(this, arguments);
   }
 
+  var self = this
+
   var _onMarkerDragListener = new com.google.android.gms.maps.GoogleMap.OnMarkerDragListener({
     
     onMarkerDrag: function(marker){
-
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag)
+        self._onMarkerDragCallback.onMarkerDrag(marker)
     },
 
     onMarkerDragEnd: function(marker){
@@ -28,10 +31,14 @@ var MapView = (function (_super) {
       this.latitude = position.latitude
       this.longitude = position.longitude
       console.log("############## onMarkerDragEnd")
+
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd)
+        self._onMarkerDragCallback.onMarkerDragEnd(marker)
     },
 
     onMarkerDragStart: function(marker){
-
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart)
+        self._onMarkerDragCallback.onMarkerDragStart(marker)
     },
 
   })
@@ -155,6 +162,7 @@ var MapView = (function (_super) {
     var mapReadyCallback = new com.google.android.gms.maps.OnMapReadyCallback({
       onMapReady: function (gMap) {
         var mView = that.get();
+
         mView._gMap = gMap;
         if(mView._pendingCameraUpdate) {
           mView.updateCamera();
@@ -163,7 +171,44 @@ var MapView = (function (_super) {
         if(self.draggable)
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener)
 
+
+        mView._gMap.setInfoWindowAdapter(createCustonWindowMarker(opts.windowImgPath));
+
+        mView._gMap.setOnInfoWindowClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener({
+           onInfoWindowClick: function(marker){
+            if(self._onInfoWindowClickCallback)
+              self._onInfoWindowClickCallback(marker)
+           }
+        }))
+
+        mView._gMap.setOnInfoWindowCloseListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowCloseListener({
+           onInfoWindowClose: function(marker){
+            if(self._onInfoWindowCloseCallback) 
+              self._onInfoWindowCloseCallback(marker)
+           }
+        }))
+
+        mView._gMap.setOnInfoWindowLongClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowLongClickListener({
+           onInfoWindowLongClick: function(marker){
+            if(self._onInfoWindowLongCallback)
+              self._onInfoWindowLongCallback(marker)
+           }
+        }))
+
+        mView._gMap.setOnMarkerClickListener(new com.google.android.gms.maps.GoogleMap.OnMarkerClickListener({
+             onMarkerClick: function(marker){
+              if(self._onMarkerCallback)
+                self._onMarkerCallback(marker)
+              return true
+             }
+        }))
+        
+        if(mView._gMap.draggable)
+          mView._gMap.setOnMarkerDragListener(_onMarkerDragListener) 
+
         mView._emit(MapView.mapReadyEvent);
+
+
         console.log("############### mapReadyCallback=" + mapReadyCallback)
       }
     });
@@ -244,6 +289,8 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMarker = function(opts) {
 
+    var self = this
+
     if(this.draggable == undefined || this.draggable == null)
       this.draggable = false
 
@@ -279,7 +326,7 @@ var MapView = (function (_super) {
     console.log("################ this.snippet=" + this.snippet)
     console.log("###################################")
 
-    this._gMap.setInfoWindowAdapter(createCustonWindowMarker(opts.windowImgPath));
+
 
     var markerOptions = new com.google.android.gms.maps.model.MarkerOptions();
     markerOptions.title(this.title);
@@ -294,12 +341,7 @@ var MapView = (function (_super) {
 
     if(opts.showWindow){
       marker.showInfoWindow()
-    }
-
-
-
-    if(this.draggable)
-      this._gMap.setOnMarkerDragListener(_onMarkerDragListener)    
+    }   
 
     this.updateCamera()
   };

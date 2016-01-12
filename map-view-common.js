@@ -11,33 +11,45 @@ var MapView = (function (_super) {
     _super.call(this);
   }
 
-  MapView.prototype.enableDefaultFullOptions = function() {
+  this._onInfoWindowClickCallback = null;
+  this._onInfoWindowCloseCallback = null;
+  this._onInfoWindowLongCallback = null;
+  this._onMarkerCallback = null;
+  this._onMarkerDragCallback = null
 
+  MapView.prototype.enableDefaultFullOptions = function() {};
+
+  MapView.prototype.addMarker = function(opts) {};
+
+  MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {};  
+
+  MapView.prototype.disableOndeEstouListener = function() {};  
+
+  MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {};  
+
+  MapView.prototype.updateCamera = function() {};
+
+  MapView.prototype.getLocationFromLocationName = function(args){ };
+
+  MapView.prototype.setOnInfoWindowClickListener = function(onInfoWindowClickCallback){
+    this._onInfoWindowClickCallback = onInfoWindowClickCallback;
   };
 
-  MapView.prototype.addMarker = function(opts) {
-
+  MapView.prototype.setOnInfoWindowCloseListener = function(onInfoWindowCloseCallback){
+    this._onInfoWindowCloseCallback = onInfoWindowCloseCallback;
   };
 
-  MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {
-
-  };  
-
-  MapView.prototype.disableOndeEstouListener = function() {
-
-  };  
-
-  MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {
-
-  };  
-
-  MapView.prototype.updateCamera = function() {
-
+  MapView.prototype.setOnInfoWindowLongClickListener = function(onInfoWindowLongCallback){
+    this._onInfoWindowLongCallback = onInfoWindowLongCallback;
   };
 
-  MapView.prototype.getLocationFromLocationName = function(args){
-    
+  MapView.prototype.setOnInfoWindowLongClickListener = function(onInfoWindowLongCallback){
+    this._onInfoWindowLongCallback = onInfoWindowLongCallback;
   };
+
+  MapView.prototype.setOnMarkerDragListener = function(onMarkerDragCallback){
+    this._onMarkerDragCallback = onMarkerDragCallback;
+  }; 
 
   MapView.prototype.notifyMapReady = function() {
     this.notify({
