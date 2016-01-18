@@ -3,7 +3,7 @@ var dObservable = require("ui/core/dependency-observable");
 var proxy = require("ui/core/proxy");
 
 var MAPVIEW = "MapView";
-var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin"];
+var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin", "useCustonWindow"];
 
 var MapView = (function (_super) {
   global.__extends(MapView, _super);
@@ -30,6 +30,12 @@ var MapView = (function (_super) {
   MapView.prototype.updateCamera = function() {};
 
   MapView.prototype.getLocationFromLocationName = function(args){ };
+
+  MapView.prototype.closeMarker = function(){}
+
+  MapView.prototype.showWindow = function(){}
+
+  MapView.prototype.hideWindow = function(){}
 
   MapView.prototype.setOnInfoWindowClickListener = function(onInfoWindowClickCallback){
     this._onInfoWindowClickCallback = onInfoWindowClickCallback;
