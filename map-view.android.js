@@ -196,7 +196,7 @@ var MapView = (function (_super) {
 
         mView._gMap.setOnInfoWindowClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener({
            onInfoWindowClick: function(marker){
-            if(self._onInfoWindowClickCallback)
+            if(self._onInfoWindowClickCallback && markersWindowImages[marker].openOnClick)
               self._onInfoWindowClickCallback({
                 'marker': marker,
                 'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
@@ -216,7 +216,7 @@ var MapView = (function (_super) {
 
         mView._gMap.setOnInfoWindowLongClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowLongClickListener({
            onInfoWindowLongClick: function(marker){
-            if(self._onInfoWindowLongCallback)
+            if(self._onInfoWindowLongCallback && markersWindowImages[marker].openOnClick)
               self._onInfoWindowLongCallback({
                 'marker': marker,
                 'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
@@ -227,11 +227,7 @@ var MapView = (function (_super) {
 
         mView._gMap.setOnMarkerClickListener(new com.google.android.gms.maps.GoogleMap.OnMarkerClickListener({
            onMarkerClick: function(marker){
-            if(self._onMarkerCallback)
-              self._onMarkerCallback({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
+            marker.showInfoWindow()
             return true
            }
         }))
@@ -328,6 +324,10 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMarker = function(opts) {
 
+    console.log("####################### maps.opts")
+    console.log(JSON.stringify(opts))
+    console.log("####################### maps.opts")
+
     var self = this
 
     if(this.draggable == undefined || this.draggable == null)
@@ -346,6 +346,12 @@ var MapView = (function (_super) {
 
     if(opts.snippet)
       this.snippet = opts.snippet
+
+    if(!this.snippet || this.snippet === 0)
+      this.snippet = ""
+
+    if(!this.title || this.title === 0)
+      this.title = ""
 
     var iconToUse = null
 
@@ -376,12 +382,18 @@ var MapView = (function (_super) {
 
     openedMarker = this._gMap.addMarker(markerOptions);
 
-    if(opts.windowImgPath){       
-      markersWindowImages[openedMarker] = {
-        'markerKey': opts.markerKey,
-        'windowImgPath': opts.windowImgPath
-      }
+    if(opts.openOnClick == undefined || opts.openOnClick == null)
+      opts.openOnClick = true
+
+    
+    markersWindowImages[openedMarker] = {
+      'markerKey': opts.markerKey,
+      'windowImgPath': opts.windowImgPath,
+      'phone': opts.phone || "",
+      'email': opts.email || "",
+      'openOnClick': opts.openOnClick
     }
+  
 
     if(opts.showWindow){
       openedMarker.showInfoWindow()
@@ -562,11 +574,9 @@ var MapView = (function (_super) {
             
             var badge = null
 
-            if(markersWindowImages[marker])
+            if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
               badge = markersWindowImages[marker].windowImgPath
-
-
-            console.log("### badge=" + badge)
+          
 
             if(badge){
               var bitmap = android.graphics.BitmapFactory.decodeFile(badge);
@@ -579,9 +589,7 @@ var MapView = (function (_super) {
             var titleUi = view.findViewById(title_id);
 
             if (title != null) {
-                // Spannable string allows us to edit the formatting of the text.
                 var titleText = new android.text.SpannableString(title);
-                //titleText.setSpan(new android.text.style.ForegroundColorSpan(Color.RED), 0, titleText.length(), 0);
                 titleUi.setText(titleText);
             } else {
                 titleUi.setText("");
@@ -593,11 +601,48 @@ var MapView = (function (_super) {
 
             if (snippet) {
                 var snippetText = new android.text.SpannableString(snippet);
-                //snippetText.setSpan(new ForegroundColorSpan(Color.MAGENTA), 0, 10, 0);
-                //snippetText.setSpan(new ForegroundColorSpan(Color.BLUE), 12, snippet.length(), 0);
                 snippetUi.setText(snippetText);
             } else {
                 snippetUi.setText("");
+            }
+
+            var phone = markersWindowImages[marker].phone;
+            var phone_id = ctx.getResources().getIdentifier('phone', "id", ctx.getPackageName());
+            var phoneUi = view.findViewById(phone_id);
+
+            if (phone) {
+                var phoneText = new android.text.SpannableString(phone);
+                phoneUi.setText(phoneText);
+            } else {
+                phoneUi.setVisibility(android.view.View.GONE);
+            }
+
+            var email = markersWindowImages[marker].email;
+            var email_id = ctx.getResources().getIdentifier('email', "id", ctx.getPackageName());
+            var emailUi = view.findViewById(email_id);
+
+            if (email) {
+                var emailText = new android.text.SpannableString(email);
+                emailUi.setText(emailText);
+            } else {
+                emailUi.setVisibility(android.view.View.GONE);
+            }
+            
+            var btnMarkerOpen_id = ctx.getResources().getIdentifier('btnMarkerOpen', "id", ctx.getPackageName());
+            var btnMarkerOpenUi = view.findViewById(btnMarkerOpen_id)
+
+            if(markersWindowImages[marker].openOnClick){
+              btnMarkerOpenUi.setOnClickListener(new android.view.View.OnClickListener({
+                onClick: function(view){
+                  
+                  if(self._onInfoWindowClickCallback) 
+                    self._onInfoWindowClickCallback({                    
+                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+                    }) 
+                }
+              }))
+            }else{
+                btnMarkerOpenUi.setVisibility(android.view.View.GONE)
             }
         },
     })    
