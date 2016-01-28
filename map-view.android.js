@@ -7,6 +7,7 @@ var initialPositionUpdated = false
 var updatePositionAllways = false
 var _ondeEstouCallback 
 var _onMarkerDragListener
+var _onMarkerClickListener
 var _cameraPosition
 var _locationListener
 var mLocationManager
@@ -60,8 +61,7 @@ var MapView = (function (_super) {
 
   var _onCameraChangeListener = new com.google.android.gms.maps.GoogleMap.OnCameraChangeListener({
     
-     onCameraChange: function(position){
-      console.log("############## onCameraChange")
+     onCameraChange: function(position){      
       this.zoom = position.zoom
       _cameraPosition = position.target
     }
@@ -179,7 +179,7 @@ var MapView = (function (_super) {
         var mView = that.get();
 
         mView._gMap = gMap;
-        if(mView._pendingCameraUpdate) {
+        if(mView._pendingCameraUpdate) {          
           mView.updateCamera();
         }
 
@@ -188,10 +188,7 @@ var MapView = (function (_super) {
 
 
         if(self.useCustonWindow && self.useCustonWindow == true){
-          mView._gMap.setInfoWindowAdapter(createCustonWindowMarker()); 
-          console.log("## use custon window")
-        }else{
-          console.log("## not use custon window")
+          mView._gMap.setInfoWindowAdapter(createCustonWindowMarker());           
         }
 
         mView._gMap.setOnInfoWindowClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener({
@@ -227,9 +224,21 @@ var MapView = (function (_super) {
 
         mView._gMap.setOnMarkerClickListener(new com.google.android.gms.maps.GoogleMap.OnMarkerClickListener({
            onMarkerClick: function(marker){
+
+            if(_onMarkerClickListener)
+              _onMarkerClickListener(marker)
+            
             marker.showInfoWindow()
+
             return true
+ 
            }
+        }))
+
+        mView._gMap.setOnMapClickListener(new com.google.android.gms.maps.GoogleMap.OnMapClickListener({
+          onMapClick: function(point){
+            //self.createLooperAnimateCamera(point)
+          }
         }))
         
         if(mView._gMap.draggable)
@@ -241,15 +250,59 @@ var MapView = (function (_super) {
         mView._gMap.setMapType(self.mapType);
 
 
+        _onMarkerClickListener = function(marker){
+          self.updateCameraToMarker(marker)
+        }
+
         mView._emit(MapView.mapReadyEvent);
-
-
-        console.log("############### mapReadyCallback=" + mapReadyCallback)
+        
       }
     });
 
     this._android.getMapAsync(mapReadyCallback);
   };
+
+
+  MapView.prototype.loopAnimateCamera = function(updates) {
+    var update = updates.pop()
+    var self = this
+
+    if(!update)
+      return
+
+    this.gMap.animateCamera(update, 1000, new com.google.android.gms.maps.GoogleMap.CancelableCallback({
+      
+      onFinish: function() {
+        self.loopAnimateCamera(updates)
+      },
+      
+      onCancel: function() {
+        console.log("camera animation cancelled")
+      }
+    }))
+  }
+
+  MapView.prototype.createLooperAnimateCamera = function(position){
+      var updates = []
+      var builder = com.google.android.gms.maps.model.CameraPosition.builder()
+      builder.target(position)
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.target(new com.google.android.gms.maps.model.LatLng(position.latitude + 20, position.longitude))
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.bearing(90)
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.target(new com.google.android.gms.maps.model.LatLng(position.latitude + 20, position.longitude + 40))
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.bearing(180)
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.target(new com.google.android.gms.maps.model.LatLng(position.latitude, position.longitude + 40))
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.bearing(270)
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      builder.target(position)
+      updates.push(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(builder.build()))
+      this.loopAnimateCamera(updates)
+  }
 
   MapView.prototype._createCameraPosition = function() {
 
@@ -306,9 +359,34 @@ var MapView = (function (_super) {
       var cameraUpdate = com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(cameraPosition);
       this.gMap.moveCamera(cameraUpdate);
 
-    }else{
-      console.log("## not updateCamera latitude=" + this.latitude + ", longitude=" + this.longitude)
+      console.log('## updateCamera')
+
     }
+  }
+
+  MapView.prototype.updateCameraToMarker = function(marker){   
+
+    console.log("## updateCameraToMarker " + this.gMap)
+
+    var self = this
+    var position = marker.getPosition()
+    var newLatLngZoom = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(position, 14)
+    this.gMap.animateCamera(newLatLngZoom, 1000, new com.google.android.gms.maps.GoogleMap.CancelableCallback({
+
+      onFinish: function() {
+        var projection = self.gMap.getProjection()
+        var point = projection.toScreenLocation(position)
+        point.x -= 100
+        point.y -= 100
+        var offsetPosition = projection.fromScreenLocation(point)
+        var newLatLng = com.google.android.gms.maps.CameraUpdateFactory.newLatLng(offsetPosition)
+        self.gMap.animateCamera(newLatLng, 300, null)
+      },
+
+      onCancel: function() {
+      }
+
+    }))
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
@@ -324,9 +402,11 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMarker = function(opts) {
 
+    /*
     console.log("####################### maps.opts")
     console.log(JSON.stringify(opts))
     console.log("####################### maps.opts")
+    */
 
     var self = this
 
@@ -355,21 +435,15 @@ var MapView = (function (_super) {
 
     var iconToUse = null
 
-    if(!opts.iconPath)
+    if(!opts.iconPath){
       iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
-    else
+    }else{
       iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)
+    }
 
     if(opts.clear)
       this._gMap.clear()
 
-    console.log("###################################")
-    console.log("################ this.latitude=" + this.latitude)
-    console.log("################ this.longitude=" + this.longitude)
-    console.log("################ this.title=" + this.title)
-    console.log("################ this.snippet=" + this.snippet)
-    console.log("################ opts.iconPath=" + opts.iconPath)
-    console.log("###################################")
 
     var markerOptions = new com.google.android.gms.maps.model.MarkerOptions();
     var latLng = new com.google.android.gms.maps.model.LatLng(this.latitude, this.longitude);
@@ -399,31 +473,30 @@ var MapView = (function (_super) {
       openedMarker.showInfoWindow()
     }   
 
-    this.updateCamera()
+    if(opts.updateCamera){
+      console.log("## opts.updateCamera=" + opts.updateCamera)
+      this.updateCamera()
+    }
+
+    return openedMarker
   };
 
   MapView.prototype.closeMarker = function(){
     if(openedMarker){
       openedMarker.setVisible(true)
     }
-
-    console.log("## remove marker")
   }
 
   MapView.prototype.hideWindow = function(){
     if(openedMarker){
       openedMarker.hideInfoWindow()
-    }
-
-    console.log("## hideWindow marker")
+    }    
   }
 
   MapView.prototype.showWindow = function(){
     if(openedMarker){
       openedMarker.showInfoWindow()
     }
-
-    console.log("## showWindow marker")
   }
 
   MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {
@@ -576,6 +649,8 @@ var MapView = (function (_super) {
 
             if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
               badge = markersWindowImages[marker].windowImgPath
+            else
+              console.log('## not has image to custon window')
           
 
             if(badge){
@@ -630,7 +705,7 @@ var MapView = (function (_super) {
             
             var btnMarkerOpen_id = ctx.getResources().getIdentifier('btnMarkerOpen', "id", ctx.getPackageName());
             var btnMarkerOpenUi = view.findViewById(btnMarkerOpen_id)
-
+ 
             if(markersWindowImages[marker].openOnClick){
               btnMarkerOpenUi.setOnClickListener(new android.view.View.OnClickListener({
                 onClick: function(view){
@@ -648,8 +723,28 @@ var MapView = (function (_super) {
     })    
   }
 
+  function radians(degrees){
+      return degrees * java.lang.Math.PI / 180.0
+  }
+
+  MapView.prototype.distance = function(params){
+    // let's give those values meaningful variable names
+
+    var _lat  = radians(java.lang.Double.parseDouble(params.lat))
+    var _lng  = radians(java.lang.Double.parseDouble(params.lng))
+    var _lat2 = radians(java.lang.Double.parseDouble(params.lat2))
+    var _lng2 = radians(java.lang.Double.parseDouble(params.lng2))
+
+
+    // calculate the distance
+    var result = 6371.0 * java.lang.Math.acos(java.lang.Math.cos(_lat2) * java.lang.Math.cos(_lat) * java.lang.Math.cos(_lng - _lng2) + java.lang.Math.sin(_lat2) * java.lang.Math.sin(_lat))
+    return result
+  }  
+
   return MapView;
 
 })(common.MapView);
 
 exports.MapView = MapView;
+
+
