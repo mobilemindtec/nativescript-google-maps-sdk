@@ -14,8 +14,8 @@ var MapView = (function (_super) {
   this._onInfoWindowClickCallback = null;
   this._onInfoWindowCloseCallback = null;
   this._onInfoWindowLongCallback = null;
-  this._onMarkerCallback = null;
   this._onMarkerDragCallback = null
+  this._onMarkerClickCallback = null
 
   MapView.prototype.enableDefaultFullOptions = function() {};
 
@@ -55,6 +55,10 @@ var MapView = (function (_super) {
 
   MapView.prototype.setOnMarkerDragListener = function(onMarkerDragCallback){
     this._onMarkerDragCallback = onMarkerDragCallback;
+  }; 
+
+  MapView.prototype.setOnMarkerClickListener = function(onMarkerClickCallback){
+    this._onMarkerClickCallback = onMarkerClickCallback;
   }; 
 
   MapView.prototype.notifyMapReady = function() {

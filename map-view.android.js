@@ -1,19 +1,24 @@
 var application = require("application");
 var common = require("./map-view-common");
+var platformModule = require("platform");
+var dialogs = require("ui/dialogs");
+var route = require("./route");
 require("utils/module-merge").merge(common, module.exports);
 
 var onlyInitialPosition = false
-var initialPositionUpdated = false
-var updatePositionAllways = false
 var _ondeEstouCallback 
+var _ondeEstouRouteCallback 
 var _onMarkerDragListener
 var _onMarkerClickListener
 var _cameraPosition
 var _locationListener
 var mLocationManager
+var isNetworkEnabled
+var isProviderEnabled
 
 var markersWindowImages = {}
 var openedMarker
+var routeTask = new route.RouteTask();   
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
@@ -227,6 +232,12 @@ var MapView = (function (_super) {
 
             if(_onMarkerClickListener)
               _onMarkerClickListener(marker)
+
+            if(self._onMarkerClickCallback)
+              self._onMarkerClickCallback({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
             
             marker.showInfoWindow()
 
@@ -245,7 +256,7 @@ var MapView = (function (_super) {
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener) 
 
         if(!self.mapType)
-          self.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_HYBRID
+          self.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL
         
         mView._gMap.setMapType(self.mapType);
 
@@ -304,6 +315,72 @@ var MapView = (function (_super) {
       this.loopAnimateCamera(updates)
   }
 
+  MapView.prototype.navigateEnable = function(params){
+
+         
+
+    var self = this
+    var origin = params.origin
+    var destination = params.destination
+
+    var overlayAction = function(args){      
+      self.addMarker(args.origin)
+      self.addMarker(args.destination)
+    }
+
+    if(origin && origin.latitude && origin.longitude){
+
+      overlayAction({
+        origin: origin,
+        destination: destination
+      })
+
+      var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
+      builder.include(new com.google.android.gms.maps.model.LatLng(origin.latitude, origin.longitude))
+      builder.include(new com.google.android.gms.maps.model.LatLng(parseFloat(destination.latitude), parseFloat(destination.longitude)))
+      var bounds = builder.build();
+      var padding = 50
+      var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
+      /// move the camera
+      this._gMap.moveCamera(camUpdate);
+      //or animate the camera...
+      this._gMap.animateCamera(camUpdate)
+
+      routeTask.execute({origin: origin, destination: destination, mapView: this._gMap})
+    }
+
+    if(params.doneFirstRote)
+      params.doneFirstRote()
+
+
+    this.enableOndeEstouListener({
+      minTime: 60000,
+      minDistance: 10,
+      ondeEstouRouteCallback: function(args){
+
+        console.log("### ondeEstouRouteCallback")
+
+        origin.latitude = args.latitude
+        origin.longitude = args.longitude
+
+
+        overlayAction({
+          origin: origin,
+          destination: destination
+        })
+
+
+        
+        routeTask.execute({origin: origin, destination: destination, mapView: self._gMap})
+      }
+    })   
+  }
+
+  MapView.prototype.navigateDisable = function(){
+    _ondeEstouRouteCallback = null
+    routeTask.remove()
+  }
+
   MapView.prototype._createCameraPosition = function() {
 
     if(isNaN(this.latitude) || isNaN(this.longitude)){
@@ -359,14 +436,14 @@ var MapView = (function (_super) {
       var cameraUpdate = com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(cameraPosition);
       this.gMap.moveCamera(cameraUpdate);
 
-      console.log('## updateCamera')
+      //console.log('## updateCamera')
 
     }
   }
 
   MapView.prototype.updateCameraToMarker = function(marker){   
 
-    console.log("## updateCameraToMarker " + this.gMap)
+    //console.log("## updateCameraToMarker " + this.gMap)
 
     var self = this
     var position = marker.getPosition()
@@ -402,10 +479,11 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMarker = function(opts) {
 
+    
     /*
-    console.log("####################### maps.opts")
+    console.log("####################### MapView.prototype.addMarker")
     console.log(JSON.stringify(opts))
-    console.log("####################### maps.opts")
+    console.log("####################### MapView.prototype.addMarker")
     */
 
     var self = this
@@ -438,11 +516,20 @@ var MapView = (function (_super) {
     if(!opts.iconPath){
       iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
     }else{
-      iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)
+      if(opts.iconPath.indexOf('res://') > -1){
+        var ctx = application.android.context
+        var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
+        console.log("#### resName=" + resName)
+        var restId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());
+        console.log("#### restId=" + restId)
+        iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromResource(restId)
+      }else{
+        iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)        
+      }
     }
 
     if(opts.clear)
-      this._gMap.clear()
+      this.clear()
 
 
     var markerOptions = new com.google.android.gms.maps.model.MarkerOptions();
@@ -481,6 +568,10 @@ var MapView = (function (_super) {
     return openedMarker
   };
 
+  MapView.prototype.clear = function(){
+    this._gMap.clear()
+  }
+
   MapView.prototype.closeMarker = function(){
     if(openedMarker){
       openedMarker.setVisible(true)
@@ -499,33 +590,92 @@ var MapView = (function (_super) {
     }
   }
 
-  MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {
+
+  MapView.prototype.enableOndeEstouListener = function(params) {
+    
     mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
+
+    var isGPSEnabled = mLocationManager
+            .isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
+
+    // getting network status
+    var isNetworkEnabled = mLocationManager
+            .isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER);
+
+
     _locationListener = this.createLocationListener()
 
-    mLocationManager.requestLocationUpdates(android.location.LocationManager.GPS_PROVIDER, 60000,
-            10, _locationListener);   
+    params.minTime = params.minTime ? params.minTime : 60000
+    params.minDistance = params.minDistance ? params.minDistance : 10
 
-    _ondeEstouCallback = ondeEstouCallback
-    updatePositionAllways = true 
+    if(isNetworkEnabled){
+      mLocationManager.requestLocationUpdates(android.location.LocationManager.NETWORK_PROVIDER, params.minTime,
+              params.minDistance, _locationListener);   
+    }
+    else if(isGPSEnabled){
+      mLocationManager.requestLocationUpdates(android.location.LocationManager.GPS_PROVIDER, params.minTime,
+              params.minDistance, _locationListener);   
+    }
+    else{
+      showProvedorDisabledAlert()
+    }
+
+    _ondeEstouCallback = params.ondeEstouCallback
+    _ondeEstouRouteCallback = params.ondeEstouRouteCallback
+
   };  
 
+  function getLastLocalization(){
+
+    mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
+
+    var lastLocation
+    var isGPSEnabled = mLocationManager
+            .isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
+
+    // getting network status
+    var isNetworkEnabled = mLocationManager
+            .isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER);
+
+
+    if(isNetworkEnabled)
+      lastLocation = mLocationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)    
+
+    if(isGPSEnabled && !lastLocation)
+      lastLocation = mLocationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)    
+
+    return lastLocation
+  }
+
   MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {
-    onlyInitialPosition = true
-    this.enableOndeEstouListener(ondeEstouCallback)
+
+    var lastLocation = getLastLocalization()
+
+    if(lastLocation){
+      console.log('############## has lastLocation')
+      ondeEstouCallback({
+        latitude: lastLocation.getLatitude(), 
+        longitude: lastLocation.getLongitude(),
+      })        
+    }else{
+      console.log('############## not has lastLocation')
+      onlyInitialPosition = true    
+      this.enableOndeEstouListener(ondeEstouCallback, {minTime: 10, minDistance: 1})
+    }
   };  
 
   MapView.prototype.disableOndeEstouListener = function(){
-    updatePositionAllways = false
-    onlyInitialPosition = false
-
     if(_locationListener && mLocationManager)
       mLocationManager.removeUpdates(_locationListener)
+
+    onlyInitialPosition = false
   }
 
   MapView.prototype.createLocationListener = function(){
     
     var self = this
+
+    console.log("############# createLocationListener")
 
     var locationListener = new android.location.LocationListener({
       onLocationChanged: function(location){
@@ -533,29 +683,35 @@ var MapView = (function (_super) {
         console.log("############# location updated to " + location)
 
 
-          if((onlyInitialPosition && !initialPositionUpdated) || updatePositionAllways){
-            initialPositionUpdated = true
-
-            
-
-            console.log("################### location.getLatitude()=" + location.getLatitude())
-            console.log("################### location.getLongitude()=" + location.getLongitude())
-
-
-            self.addMarker({
-              latitude: location.getLatitude(), 
-              longitude: location.getLongitude(),
-              clear: true
-            })
-
-            if(_ondeEstouCallback)
-              _ondeEstouCallback()
+          if(onlyInitialPosition){
+            self.disableOndeEstouListener()
           }
+          
+
+          var args = {
+            latitude: location.getLatitude(), 
+            longitude: location.getLongitude(),
+          }
+
+          if(_ondeEstouRouteCallback)
+            _ondeEstouRouteCallback(args)
+
+          if(_ondeEstouCallback)
+            _ondeEstouCallback(args)
+
+          
       },
 
-      onProviderDisabled: function(provider){},
-      onProviderEnabled: function(provider){},
-      onStatusChanged: function(provider, status, extras){}
+      onProviderDisabled: function(provider){ 
+        console.log("############# locationListener.onProviderDisabled ")     
+        showGpsDisabledAlert()
+      },
+      onProviderEnabled: function(provider){ 
+        console.log("############# locationListener.onProviderEnabled ") 
+      },
+      onStatusChanged: function(provider, status, extras){ 
+        console.log("############# locationListener.onStatusChanged ") 
+      }
 
     })   
 
@@ -583,10 +739,6 @@ var MapView = (function (_super) {
     }).then(function(addresses){
       
       var result  = []
-      console.log("################")
-      console.log("### addresses="+addresses.size())
-      console.log("### addresses="+addresses)
-      console.log("################")
 
       if(addresses && addresses.size() > 0){      
         for(var i = 0; i < addresses.size(); i++){
@@ -614,6 +766,34 @@ var MapView = (function (_super) {
       
     })  
   };
+
+  function showGpsDisabledAlert(){
+    var intent = new android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+
+    dialogs.confirm({
+      title: "Aviso",
+      message: "Seu GPS está desabilitado!",
+      okButtonText: "Configurações",
+      cancelButtonText: "Cancelar"
+    }).then(function (result) {                          
+        if(result)
+          application.android.currentContext.startActivity(intent);
+    });        
+  }
+
+  function showProvedorDisabledAlert(){
+    var intent = new android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+
+    dialogs.confirm({
+      title: "Aviso",
+      message: "Nenhum provedor GPS ativo. Habilite seu GPS ou conecte sua internet.",
+      okButtonText: "Configurações",
+      cancelButtonText: "Cancelar"
+    }).then(function (result) {                          
+        if(result)
+          application.android.currentContext.startActivity(intent);
+    });        
+  }  
 
 
   function capitalize(text) {
@@ -644,15 +824,15 @@ var MapView = (function (_super) {
         render: function(marker, view) {
 
             var ctx = application.android.context
-            
+            var width = platformModule.screen.mainScreen.widthPixels
+
             var badge = null
 
             if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
               badge = markersWindowImages[marker].windowImgPath
             else
               console.log('## not has image to custon window')
-          
-
+                  
             if(badge){
               var bitmap = android.graphics.BitmapFactory.decodeFile(badge);
               var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
@@ -730,10 +910,15 @@ var MapView = (function (_super) {
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
 
-    var _lat  = radians(java.lang.Double.parseDouble(params.lat))
-    var _lng  = radians(java.lang.Double.parseDouble(params.lng))
-    var _lat2 = radians(java.lang.Double.parseDouble(params.lat2))
-    var _lng2 = radians(java.lang.Double.parseDouble(params.lng2))
+    var _lat  = isNaN(params.lat) ? radians(java.lang.Double.parseDouble(params.lat)) : radians(params.lat)
+    var _lng  = isNaN(params.lng) ? radians(java.lang.Double.parseDouble(params.lng)) : radians(params.lng)
+    var _lat2 = isNaN(params.lat2) ? radians(java.lang.Double.parseDouble(params.lat2)) : radians(params.lat2)
+    var _lng2 = isNaN(params.lng2) ? radians(java.lang.Double.parseDouble(params.lng2)) : radians(params.lng2)
+
+    _lat  = isNaN(_lat) ? 0 : _lat
+    _lng  = isNaN(_lng) ? 0 : _lng
+    _lat2  = isNaN(_lat2) ? 0 : _lat2
+    _lng2  = isNaN(_lng2) ? 0 : _lng2
 
 
     // calculate the distance
