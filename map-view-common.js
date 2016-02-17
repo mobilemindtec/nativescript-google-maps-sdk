@@ -3,7 +3,7 @@ var dObservable = require("ui/core/dependency-observable");
 var proxy = require("ui/core/proxy");
 
 var MAPVIEW = "MapView";
-var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType" ];
+var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin", "useCustonWindow"];
 
 var MapView = (function (_super) {
   global.__extends(MapView, _super);
@@ -11,33 +11,55 @@ var MapView = (function (_super) {
     _super.call(this);
   }
 
-  MapView.prototype.enableDefaultFullOptions = function() {
+  this._onInfoWindowClickCallback = null;
+  this._onInfoWindowCloseCallback = null;
+  this._onInfoWindowLongCallback = null;
+  this._onMarkerDragCallback = null
+  this._onMarkerClickCallback = null
 
+  MapView.prototype.enableDefaultFullOptions = function() {};
+
+  MapView.prototype.addMarker = function(opts) {};
+
+  MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {};  
+
+  MapView.prototype.disableOndeEstouListener = function() {};  
+
+  MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {};  
+
+  MapView.prototype.updateCamera = function() {};
+
+  MapView.prototype.getLocationFromLocationName = function(args){ };
+
+  MapView.prototype.closeMarker = function(){}
+
+  MapView.prototype.showWindow = function(){}
+
+  MapView.prototype.hideWindow = function(){}
+
+  MapView.prototype.setOnInfoWindowClickListener = function(onInfoWindowClickCallback){
+    this._onInfoWindowClickCallback = onInfoWindowClickCallback;
   };
 
-  MapView.prototype.addMarker = function(opts) {
-
+  MapView.prototype.setOnInfoWindowCloseListener = function(onInfoWindowCloseCallback){
+    this._onInfoWindowCloseCallback = onInfoWindowCloseCallback;
   };
 
-  MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {
-
-  };  
-
-  MapView.prototype.disableOndeEstouListener = function() {
-
-  };  
-
-  MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {
-
-  };  
-
-  MapView.prototype.updateCamera = function() {
-
+  MapView.prototype.setOnInfoWindowLongClickListener = function(onInfoWindowLongCallback){
+    this._onInfoWindowLongCallback = onInfoWindowLongCallback;
   };
 
-  MapView.prototype.getLocationFromLocationName = function(args){
-    
+  MapView.prototype.setOnInfoWindowLongClickListener = function(onInfoWindowLongCallback){
+    this._onInfoWindowLongCallback = onInfoWindowLongCallback;
   };
+
+  MapView.prototype.setOnMarkerDragListener = function(onMarkerDragCallback){
+    this._onMarkerDragCallback = onMarkerDragCallback;
+  }; 
+
+  MapView.prototype.setOnMarkerClickListener = function(onMarkerClickCallback){
+    this._onMarkerClickCallback = onMarkerClickCallback;
+  }; 
 
   MapView.prototype.notifyMapReady = function() {
     this.notify({
@@ -64,8 +86,18 @@ var MapView = (function (_super) {
         return this._getValue( property );
       },
       set: function( value ) {
-        //var parsedValue = parseFloat( value);
-        this._setValue( property, value );
+        var parsedValue = value
+
+        if(value && (name == 'latitude' || name == 'longitude')){
+
+          if(value && !isNaN(value) && value.length > 16)
+            parsedValue = Number(value.substring(0, 16))
+          else
+            parsedValue = Number(value);
+
+        }
+
+        this._setValue( property, parsedValue);
       }
     });
   });
