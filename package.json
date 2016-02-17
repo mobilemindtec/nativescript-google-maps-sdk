@@ -1,2 +1,9 @@
 { "name" : "nativescript-google-maps-sdk",
-  "main" : "map-view.js" }
+  "main" : "map-view.js" 
+  "nativescript": {
+    "platforms": {
+      "ios": "1.4.0",
+    "android": "1.4.0"
+    }
+  }
+}
