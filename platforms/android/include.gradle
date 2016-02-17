@@ -1,3 +1,14 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+      classpath 'com.android.tools.build:gradle:2.0.0-alpha3'
+      classpath 'com.google.gms:google-services:2.0.0-alpha3'
+    }
+}
+
 android { 
     productFlavors {
         "nativescript-google-maps-sdk" {
