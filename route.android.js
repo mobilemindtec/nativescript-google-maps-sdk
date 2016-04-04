@@ -8,8 +8,6 @@ function GoogleParser(params) {
 
     this.parse = function() {
 
-
-
         // Cria uma rota vazia
         var route = new Route()
         var self = this
@@ -21,12 +19,12 @@ function GoogleParser(params) {
             'Content-Type': 'application/json'
           },                     
         }).then(function(response){
-              if (!response.ok) {
-                console.log(JSON.stringify(response));
-                throw "Ocorreu um erro desconhecido ao conectar com o servidor. Detalhes: " + response.statusText    
-              }
+          if (!response.ok) {
+            console.log(JSON.stringify(response));
+            throw "Ocorreu um erro desconhecido ao conectar com o servidor. Detalhes: " + response.statusText    
+          }
 
-              return response;
+          return response;
 
         }).then(function(response) {
 
@@ -185,7 +183,7 @@ function RouteTask(){
                 + "destination=" + dest.latitude + "," + dest.longitude + "&"
                 + "sensor=true&mode=driving"
 
-        console.log(urlRota)
+        console.log("##### urlRota=" + urlRota)
 
         new GoogleParser({'feedUrl': urlRota})
         .parse()

@@ -5,7 +5,9 @@ Read Google Maps ApI Documentation at https://developers.google.com/maps/documen
 Atention!!!! Don't forget of add google-service.json at platforms/android app folder and update you android api, because gradle plugin
 and dependencies use local libs
 
-## Dependencies
+## Android 
+
+### Android Dependencies
 
 Add in classpath 'com.google.gms:google-services:1.5.0' in buildScript dependencies
 ```
@@ -21,16 +23,7 @@ buildscript {
 }
 ```
 
-Add in dependencies 
-
-```
-  // run tns install, add this line before compile
-  compile "com.android.support:recyclerview-v7:$suppotVer"
-
-  compile "com.google.android.gms:play-services-maps:8.3.0"
-```
-
-## Android configuration
+### Android configuration
 
 Create a new entry at App_Resources/values/strings.xml with a api key value
 ```
@@ -49,11 +42,59 @@ Change the AndroidManifest.xml to add in
 </application>
 ```
 
-## Layout
+## IOS
+
+### Info.plist
+
+```
+<key>NSLocationWhenInUseUsageDescription</key>
+<string></string>	
+
+<key>NSAppTransportSecurity</key>
+<dict>
+	<key>NSAllowsArbitraryLoads</key>
+	<true/>
+</dict>
+```
+
+### app.ios.js
+
+```
+var application = require("application");
+var GOOGLE_MAPS_API_KEY = "your api key"
+var MyDelegate = (function (_super) {
+    __extends(MyDelegate, _super);
+    function MyDelegate() {
+        _super.apply(this, arguments);
+    }
+    MyDelegate.prototype.applicationDidFinishLaunchingWithOptions = function (application, launchOptions) {
+    	GMSServices.provideAPIKey(GOOGLE_MAPS_API_KEY);
+        return true
+    };
+    MyDelegate.prototype.applicationOpenURLSourceApplicationAnnotation = function (application, url, sourceApplication, annotation) {
+        return false
+    };
+    MyDelegate.prototype.applicationDidBecomeActive = function (application) {
+        
+    };
+    MyDelegate.prototype.applicationWillTerminate = function (application) {
+        //Do something you want here
+    };
+    MyDelegate.prototype.applicationDidEnterBackground = function (application) {
+        //Do something you want here
+    };
+    MyDelegate.ObjCProtocols = [UIApplicationDelegate];
+    return MyDelegate;
+}(UIResponder));
+application.ios.delegate = MyDelegate;
+application.start({ moduleName: "main-page" });
+```
+
+### Layout
 
 ```
 <Page loaded="loaded" xmlns="http://www.nativescript.org/tns.xsd" 
-  xmlns:maps="/modules/nativescript-google-maps-sdk"
+  xmlns:maps="nativescript-google-maps-sdk"
   actionBarHidden="true">
   <Page.actionBar>
     <ActionBar title="Map"></ActionBar>
@@ -76,46 +117,139 @@ Change the AndroidManifest.xml to add in
 
 ```
 
-## Use plugin
+## Use plugin  - implament map init on callback
 
 ```
 var mapView, gMap
+var viewModel = new observableModule.Observable({
+  'mapa': {
+    latitude: -29.1819607,
+    longitude: -51.4926093,
+    title: "Padrão",
+    snippet: "Padrão"
+  }
+})
 
-var mapa = {
-  latitude: -29.1819607,
-  longitude: -51.4926093,
-  title: "Default Location",
-  snippet: "Default Location"
-} 
+exports.loaded = function(args) {
+  var page = args.object;  
+  page.bindingContext = viewModel;
+}
 
 // init map
 exports.OnMapReady =  function(args) {
   mapView = args.object;
   gMap = mapView.gMap;
-
-  mapView.enableDefaultFullOptions()
-  mapView.addMarker(mapa)  
-  
-  mapView.setInicialPositionEstou(function(){
-    // initial position ok  
-  })
-  
-  // update map position each 1 min
-  //mapView.enableOndeEstouListener(function(){
-  //})
-  
+  mapView.enableDefaultFullOptions() 
+  mapView.setOnInfoWindowClickListener(mapCallback.onInfoWindowClickCallback)
+  mapView.setOnInfoWindowCloseListener(mapCallback.onInfoWindowCloseCallback)    
+  mapView.setOnMarkerClickListener(mapCallback.onMarkerClickCallback)
 }
 ```
-```
-// update map
 
-    var mapa = {
-      clear: true,
-      latitude: latitude,
-      longitude: longitude,
-      title: "",
-      snippet: ""
-    }
-    
-    mapView.addMarker(mapa)
+### Features
+
+* add markers / custon icon pin
+* trace route / navigate
+* fit bounds
+* custon window marker
+* events - marker click, marker drag, window marker click
+* get/add my location
+* clear
+* Distance between two coordenates: 
+
+```
+var distance = mapView.distance({
+	lat: 00,
+	lng: 000,
+	lat1: 000,
+	lng1:000
+})
+```
+
+```
+var MapCallback = function(){
+
+  MapCallback.onInfoWindowClickCallback = function(args, notShowInfo) {  
+    console.log("### onInfoWindowClickCallback")
+  }
+
+  MapCallback.onMarkerClickCallback = function(args){
+    console.log("### onMarkerClickCallback")
+    this.onInfoWindowClickCallback.call(this, args, true)
+  }
+
+  MapCallback.onInfoWindowCloseCallback = function(args) {
+
+  }
+
+  MapCallback.addMarker = function(){
+
+  	if(currentPoint >= points.length){
+  		this.clear()
+  		currentPoint  = 0
+  	}
+  	
+  	var current = points[currentPoint++]
+  	mapView.addMarker(current)  	
+  }  
+
+  MapCallback.clear = function(){
+    mapView.clear()
+  }
+
+  MapCallback.onFitBounds = function(){
+  	mapView.fitBounds()
+  }
+
+  MapCallback.onMyLocation = function(){
+  	mapView.clear()
+  	mapView.addMyLocationMarker({
+      // iconPath
+      updateCamera: true,
+      title: "My Location",
+      snippet: "My Location",
+      rightControls: true,           
+      useCustonWindow: true,
+      email: "suporte@mobilemind.com.br",
+      phone: "(54) 9976-7081",
+      openOnClick: true,
+      windowImgPath: "res://icon",
+    })
+  }
+
+  MapCallback.navigate = function(){
+
+  	mapView.getMyLocationMarker(function(args){
+  	    
+        console.log("## getMyLocationMarker is done")
+
+  	    mapView.navigateEnable({
+
+  	      doneFirstRote: function(){
+  	        
+  	        console.log("## done first route")
+  	      },                
+
+  	      origin: {
+  	        title: 'My Location - Origin',
+  	        snippet: 'My Location - Origin',      
+  	        rightControls: true,      
+  	        showWindow: false,
+  	        windowImgPath:  "res://icon",      
+  	        openOnClick: true,      
+  	        latitude: args.latitude,
+  	        longitude: args.longitude,
+  	        updateCamera: true
+  	      },
+  	      
+  	      destination: points[3]       
+  	  
+  		})
+	})           
+  }  
+
+  return MapCallback
+}
+
+var mapCallback = new MapCallback()
 ```
