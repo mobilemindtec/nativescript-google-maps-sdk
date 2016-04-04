@@ -155,6 +155,16 @@ exports.OnMapReady =  function(args) {
 * events - marker click, marker drag, window marker click
 * get/add my location
 * clear
+* Distance between two coordenates: 
+
+```
+var distance = mapView.distance({
+	lat: 00,
+	lng: 000,
+	lat1: 000,
+	lng1:000
+})
+```
 
 ```
 var MapCallback = function(){
