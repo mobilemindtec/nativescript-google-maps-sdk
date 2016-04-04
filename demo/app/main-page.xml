@@ -1,0 +1,7 @@
+<Page xmlns="http://schemas.nativescript.org/tns.xsd" loaded="loaded">
+  <StackLayout>
+    <Label text="Google Maps SDK" class="title"/>
+    <Button text="Go to map view" tap="goMap" />
+    <Label text="{{ message }}" class="message" textWrap="true"/>
+  </StackLayout>
+</Page>

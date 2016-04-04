@@ -14,18 +14,19 @@ var MapView = (function (_super) {
   this._onInfoWindowClickCallback = null;
   this._onInfoWindowCloseCallback = null;
   this._onInfoWindowLongCallback = null;
-  this._onMarkerDragCallback = null
-  this._onMarkerClickCallback = null
+  this._onMarkerDragCallback = null;
+  this._onMarkerClickCallback = null;
+  this._custonWindowMarkerCreator = null;
 
   MapView.prototype.enableDefaultFullOptions = function() {};
 
   MapView.prototype.addMarker = function(opts) {};
 
-  MapView.prototype.enableOndeEstouListener = function(ondeEstouCallback) {};  
+  MapView.prototype.enableMyLocationUpdateListener = function(myLocationUpdateCallback) {};  
 
-  MapView.prototype.disableOndeEstouListener = function() {};  
+  MapView.prototype.disableMyLocationUpdateListener = function() {};  
 
-  MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {};  
+  MapView.prototype.addMyLocationMarker = function(myLocationUpdateCallback) {};  
 
   MapView.prototype.updateCamera = function() {};
 
@@ -60,6 +61,10 @@ var MapView = (function (_super) {
   MapView.prototype.setOnMarkerClickListener = function(onMarkerClickCallback){
     this._onMarkerClickCallback = onMarkerClickCallback;
   }; 
+
+  MapView.prototype.setCustonWindowMarkerCreator = function(custonWindowMarkerCreator){
+    this._custonWindowMarkerCreator = custonWindowMarkerCreator
+  }
 
   MapView.prototype.notifyMapReady = function() {
     this.notify({

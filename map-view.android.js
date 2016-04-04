@@ -6,8 +6,8 @@ var route = require("./route");
 require("utils/module-merge").merge(common, module.exports);
 
 var onlyInitialPosition = false
-var _ondeEstouCallback 
-var _ondeEstouRouteCallback 
+var _myLocationUpdateCallback 
+var _myLocationUpdateRouteCallback 
 var _onMarkerDragListener
 var _onMarkerClickListener
 var _cameraPosition
@@ -353,12 +353,12 @@ var MapView = (function (_super) {
       params.doneFirstRote()
 
 
-    this.enableOndeEstouListener({
+    this.enableMyLocationUpdateListener({
       minTime: 60000,
       minDistance: 10,
-      ondeEstouRouteCallback: function(args){
+      myLocationRouteCallback: function(args){
 
-        console.log("### ondeEstouRouteCallback")
+        console.log("### myLocationRouteCallback")
 
         origin.latitude = args.latitude
         origin.longitude = args.longitude
@@ -377,7 +377,7 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype.navigateDisable = function(){
-    _ondeEstouRouteCallback = null
+    _myLocationUpdateCallback = null
     routeTask.remove()
   }
 
@@ -464,6 +464,20 @@ var MapView = (function (_super) {
       }
 
     }))
+  }
+
+  MapView.prototype.fitBounds = function(centerMarker){
+    var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
+    
+    for (var marker in markersWindowImages) {
+        builder.include(marker.getPosition());
+    }
+    
+    var bounds = builder.build();    
+
+    var padding = 0; // offset from edges of the map in pixels
+    var cu = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
+    this.gMap.animateCamera(cu);
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
@@ -591,7 +605,7 @@ var MapView = (function (_super) {
   }
 
 
-  MapView.prototype.enableOndeEstouListener = function(params) {
+  MapView.prototype.enableMyLocationUpdateListener = function(params) {
     
     mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
 
@@ -620,8 +634,8 @@ var MapView = (function (_super) {
       showProvedorDisabledAlert()
     }
 
-    _ondeEstouCallback = params.ondeEstouCallback
-    _ondeEstouRouteCallback = params.ondeEstouRouteCallback
+    _myLocationUpdateCallback = params.myLocationUpdateCallback
+    _myLocationUpdateRouteCallback = params.myLocationUpdateRouteCallback
 
   };  
 
@@ -647,24 +661,45 @@ var MapView = (function (_super) {
     return lastLocation
   }
 
-  MapView.prototype.setInicialPositionEstou = function(ondeEstouCallback) {
+  MapView.prototype.addMyLocationMarker = function(args) {
 
+    args = args || {}
     var lastLocation = getLastLocalization()
 
     if(lastLocation){
       console.log('############## has lastLocation')
-      ondeEstouCallback({
-        latitude: lastLocation.getLatitude(), 
-        longitude: lastLocation.getLongitude(),
-      })        
+        
+      args.slatitude =  lastLocation.getLatitude() 
+      args.longitude = lastLocation.getLongitude()
+      
+      this.addMarker(args)
+
     }else{
       console.log('############## not has lastLocation')
       onlyInitialPosition = true    
-      this.enableOndeEstouListener(ondeEstouCallback, {minTime: 10, minDistance: 1})
+      this.enableMyLocationUpdateListener({
+      minTime: 10, 
+      minDistance: 1,
+      myLocationUpdateCallback:  function(location){
+          args.latitude = location.latitude
+          args.longitude = location.longitude
+          self.addMarker(args)
+        }
+      })
     }
   };  
 
-  MapView.prototype.disableOndeEstouListener = function(){
+  MapView.prototype.getMyLocationMarker = function(myLocationUpdateCallback) {    
+    var self = this
+    onlyInitialPosition = true    
+    this.enableMyLocationUpdateListener({
+      minTime: 10, 
+      minDistance: 1,
+      myLocationUpdateCallback:  myLocationUpdateCallback
+    })
+  };   
+
+  MapView.prototype.disableMyLocationUpdateListener = function(){
     if(_locationListener && mLocationManager)
       mLocationManager.removeUpdates(_locationListener)
 
@@ -684,7 +719,7 @@ var MapView = (function (_super) {
 
 
           if(onlyInitialPosition){
-            self.disableOndeEstouListener()
+            self.disableMyLocationUpdateListener()
           }
           
 
@@ -693,11 +728,11 @@ var MapView = (function (_super) {
             longitude: location.getLongitude(),
           }
 
-          if(_ondeEstouRouteCallback)
-            _ondeEstouRouteCallback(args)
+          if(_myLocationUpdateRouteCallback)
+            _myLocationUpdateRouteCallback(args)
 
-          if(_ondeEstouCallback)
-            _ondeEstouCallback(args)
+          if(_myLocationUpdateCallback)
+            _myLocationUpdateCallback(args)
 
           
       },
