@@ -19,7 +19,6 @@ var isProviderEnabled
 var markersWindowImages = {}
 var openedMarker
 var routeTask = new route.RouteTask();   
-var markerIconsCache = {}
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
@@ -29,31 +28,38 @@ var MapView = (function (_super) {
 
   var self = this
 
-  var createMarkerEventData = function(marker){
-    return {
-      'marker': marker,
-      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-    }
-  }
-
   var _onMarkerDragListener = new com.google.android.gms.maps.GoogleMap.OnMarkerDragListener({
     
     onMarkerDrag: function(marker){
-      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag)
-        self._onMarkerDragCallback.onMarkerDrag(createMarkerEventData(marker))      
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag){
+        self._onMarkerDragCallback.onMarkerDrag({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
+      }
     },
 
     onMarkerDragEnd: function(marker){
       var position = marker.getPosition()
       this.latitude = position.latitude
       this.longitude = position.longitude
-      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd)
-        self._onMarkerDragCallback.onMarkerDragEnd(createMarkerEventData(marker))      
+      console.log("############## onMarkerDragEnd")
+
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd){
+        self._onMarkerDragCallback.onMarkerDragEnd({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
+      }
     },
 
     onMarkerDragStart: function(marker){
-      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart)
-        self._onMarkerDragCallback.onMarkerDragStart(createMarkerEventData(marker))      
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart){
+        self._onMarkerDragCallback.onMarkerDragStart({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
+      }
     },
 
   })
@@ -140,6 +146,27 @@ var MapView = (function (_super) {
     this._android.onCreate(null);
     this._android.onResume();
     var self = this
+
+    /*
+    var zoomParams = new android.widget.RelativeLayout.LayoutParams(
+            android.widget.RelativeLayout.LayoutParams.FILL_PARENT, android.widget.RelativeLayout.LayoutParams.FILL_PARENT);
+    var controlls = this._android.findViewById(0x1);
+  
+    controlls.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.LEFT);
+
+
+    zoomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM);
+    zoomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_LEFT);
+
+    var margin = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, 10,
+            this._context.getResources().getDisplayMetrics());
+    zoomParams.setMargins(margin, margin, margin, margin);
+    controlls.setLayoutParams(zoomParams);
+
+
+    var controll2 = this._android.findViewById(0x4);
+    console.log("#################### >>> " + controll2)
+    */
     
     if(this.zoonMargin){
       var zoomControls = this._android.findViewById(0x1);        
@@ -157,52 +184,66 @@ var MapView = (function (_super) {
         var mView = that.get();
 
         mView._gMap = gMap;
-        if(mView._pendingCameraUpdate)      
-          mView.updateCamera();        
+        if(mView._pendingCameraUpdate) {          
+          mView.updateCamera();
+        }
 
         if(self.draggable)
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener)
 
 
-        if(self.useCustonWindow && self.useCustonWindow == true)
-          mView._gMap.setInfoWindowAdapter(createCustonWindowMarker());                   
+        if(self.useCustonWindow && self.useCustonWindow == true){
+          mView._gMap.setInfoWindowAdapter(createCustonWindowMarker());           
+        }
 
         mView._gMap.setOnInfoWindowClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener({
            onInfoWindowClick: function(marker){
             if(self._onInfoWindowClickCallback && markersWindowImages[marker].openOnClick)
-              self._onInfoWindowClickCallback(createMarkerEventData(marker))
+              self._onInfoWindowClickCallback({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
            }
         }))
         
         mView._gMap.setOnInfoWindowCloseListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowCloseListener({
            onInfoWindowClose: function(marker){
             if(self._onInfoWindowCloseCallback) 
-              self._onInfoWindowCloseCallback(createMarkerEventData(marker))
+              self._onInfoWindowCloseCallback({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
            }
         }))
 
         mView._gMap.setOnInfoWindowLongClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowLongClickListener({
            onInfoWindowLongClick: function(marker){
             if(self._onInfoWindowLongCallback && markersWindowImages[marker].openOnClick)
-              self._onInfoWindowLongCallback(createMarkerEventData(marker))
+              self._onInfoWindowLongCallback({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
            }
         }))
 
 
         mView._gMap.setOnMarkerClickListener(new com.google.android.gms.maps.GoogleMap.OnMarkerClickListener({
-          onMarkerClick: function(marker){
+           onMarkerClick: function(marker){
 
             if(_onMarkerClickListener)
               _onMarkerClickListener(marker)
 
             if(self._onMarkerClickCallback)
-              self._onMarkerClickCallback(createMarkerEventData(marker))
-
+              self._onMarkerClickCallback({
+                'marker': marker,
+                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              })
+            
             marker.showInfoWindow()
 
             return true
  
-          }
+           }
         }))
 
         mView._gMap.setOnMapClickListener(new com.google.android.gms.maps.GoogleMap.OnMapClickListener({
@@ -224,7 +265,8 @@ var MapView = (function (_super) {
           self.updateCameraToMarker(marker)
         }
 
-        mView._emit(MapView.mapReadyEvent);        
+        mView._emit(MapView.mapReadyEvent);
+        
       }
     });
 
@@ -273,7 +315,10 @@ var MapView = (function (_super) {
       this.loopAnimateCamera(updates)
   }
 
-  MapView.prototype.navigateEnable = function(params){         
+  MapView.prototype.navigateEnable = function(params){
+
+         
+
     var self = this
     var origin = params.origin
     var destination = params.destination
@@ -323,6 +368,8 @@ var MapView = (function (_super) {
           origin: origin,
           destination: destination
         })
+
+
         
         routeTask.execute({origin: origin, destination: destination, mapView: self._gMap})
       }
@@ -331,7 +378,6 @@ var MapView = (function (_super) {
 
   MapView.prototype.navigateDisable = function(){
     _myLocationUpdateCallback = null
-    this.disableMyLocationUpdateListener()
     routeTask.remove()
   }
 
@@ -446,10 +492,13 @@ var MapView = (function (_super) {
   };
 
   MapView.prototype.addMarker = function(opts) {
+
     
-    console.log("####################### MapView.prototype.addMarker start")
+    /*
+    console.log("####################### MapView.prototype.addMarker")
     console.log(JSON.stringify(opts))
-    console.log("####################### MapView.prototype.addMarker end")
+    console.log("####################### MapView.prototype.addMarker")
+    */
 
     var self = this
 
@@ -478,48 +527,24 @@ var MapView = (function (_super) {
 
     var iconToUse = null
 
-    if(opts.iconPath){      
+    if(!opts.iconPath){
+      iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
+    }else{
       if(opts.iconPath.indexOf('res://') > -1){
         var ctx = application.android.context
         var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
-        console.log("#### icon resource name =" + resName)
+        console.log("#### resName=" + resName)
         var restId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());
-        console.log("#### icon resource id =" + restId)
+        console.log("#### restId=" + restId)
         iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromResource(restId)
       }else{
-
-        if(markerIconsCache[opts.iconPath]){
-          iconToUse = markerIconsCache[opts.iconPath]
-        }else{
-          console.log('## icon create step 1')
-          var iconGenerator = new com.google.maps.android.ui.IconGenerator(this._context)
-          console.log('## icon create step 2')
-          var drawable = android.graphics.drawable.Drawable.createFromPath(opts.iconPath)
-          console.log('## icon create step 3')
-          iconGenerator.setBackground(drawable)
-          console.log('## icon create step 4')
-
-          var view = new android.view.View(this._context);
-          console.log('## icon create step 5')
-          view.setLayoutParams(new android.view.ViewGroup.LayoutParams(10, 10));
-          console.log('## icon create step 6')
-          iconGenerator.setContentView(view);
-          console.log('## icon create step 7')
-
-          var bitmap = iconGenerator.makeIcon()
-          iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
-          console.log('## icon create step 8')
-          //iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)        
-
-          markerIconsCache[opts.iconPath] = iconToUse
-        }
+        iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)        
       }
-    }else{
-      iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
     }
 
     if(opts.clear)
       this.clear()
+
 
     var markerOptions = new com.google.android.gms.maps.model.MarkerOptions();
     var latLng = new com.google.android.gms.maps.model.LatLng(this.latitude, this.longitude);
@@ -534,6 +559,7 @@ var MapView = (function (_super) {
 
     if(opts.openOnClick == undefined || opts.openOnClick == null)
       opts.openOnClick = true
+
     
     markersWindowImages[openedMarker] = {
       'markerKey': opts.markerKey,
@@ -544,11 +570,14 @@ var MapView = (function (_super) {
     }
   
 
-    if(opts.showWindow)
-      openedMarker.showInfoWindow()  
+    if(opts.showWindow){
+      openedMarker.showInfoWindow()
+    }   
 
-    if(opts.updateCamera)
+    if(opts.updateCamera){
+      console.log("## opts.updateCamera=" + opts.updateCamera)
       this.updateCamera()
+    }
 
     return openedMarker
   };
@@ -558,25 +587,26 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype.closeMarker = function(){
-    if(openedMarker)
-      openedMarker.setVisible(true)    
+    if(openedMarker){
+      openedMarker.setVisible(true)
+    }
   }
 
   MapView.prototype.hideWindow = function(){
-    if(openedMarker)
-      openedMarker.hideInfoWindow()  
+    if(openedMarker){
+      openedMarker.hideInfoWindow()
+    }    
   }
 
   MapView.prototype.showWindow = function(){
-    if(openedMarker)
-      openedMarker.showInfoWindow()    
+    if(openedMarker){
+      openedMarker.showInfoWindow()
+    }
   }
 
 
   MapView.prototype.enableMyLocationUpdateListener = function(params) {
     
-    console.log("### enableOndeEstouListener")
-
     mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
 
     var isGPSEnabled = mLocationManager
@@ -687,9 +717,7 @@ var MapView = (function (_super) {
 
         console.log("############# location updated to " + location)
 
-        if(onlyInitialPosition)
-          self.disableOndeEstouListener()          
-        
+
           if(onlyInitialPosition){
             self.disableMyLocationUpdateListener()
           }
@@ -705,17 +733,17 @@ var MapView = (function (_super) {
 
           if(_myLocationUpdateCallback)
             _myLocationUpdateCallback(args)
+
+          
       },
 
       onProviderDisabled: function(provider){ 
         console.log("############# locationListener.onProviderDisabled ")     
         showGpsDisabledAlert()
       },
-
       onProviderEnabled: function(provider){ 
         console.log("############# locationListener.onProviderEnabled ") 
       },
-
       onStatusChanged: function(provider, status, extras){ 
         console.log("############# locationListener.onStatusChanged ") 
       }
@@ -793,7 +821,7 @@ var MapView = (function (_super) {
 
     dialogs.confirm({
       title: "Aviso",
-      message: "Nenhum provedor GPS ativo. Habilite seu GPS ou sua internet.",
+      message: "Nenhum provedor GPS ativo. Habilite seu GPS ou conecte sua internet.",
       okButtonText: "Configurações",
       cancelButtonText: "Cancelar"
     }).then(function (result) {                          
@@ -813,87 +841,99 @@ var MapView = (function (_super) {
         
           
         getInfoWindow: function(marker) {
-          var ctx = application.android.context
-          var custom_info_window = ctx.getResources().getIdentifier('custom_info_window', "layout", ctx.getPackageName());
-          var mWindow = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
-          this.render(marker, mWindow);
-          return mWindow;
+            var ctx = application.android.context
+            var custom_info_window = ctx.getResources().getIdentifier('custom_info_window', "layout", ctx.getPackageName());
+            var mWindow = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
+            this.render(marker, mWindow);
+            return mWindow;
         },
 
         getInfoContents: function(marker) {
           var ctx = application.android.context
-          var custom_info_contents = ctx.getResources().getIdentifier('custom_info_contents', "layout", ctx.getPackageName());
-          var mContents = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
-          this.render(marker, mContents);
-          return mContents;
+            var custom_info_contents = ctx.getResources().getIdentifier('custom_info_contents', "layout", ctx.getPackageName());
+            var mContents = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
+            this.render(marker, mContents);
+            return mContents;
         },
 
         render: function(marker, view) {
 
-          var ctx = application.android.context
-          var width = platformModule.screen.mainScreen.widthPixels
-          var badge = null
+            var ctx = application.android.context
+            var width = platformModule.screen.mainScreen.widthPixels
 
-          if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
-            badge = markersWindowImages[marker].windowImgPath
-          else
-            console.log('## not has image to custon window')
-                
-          if(badge){
-            var bitmap = android.graphics.BitmapFactory.decodeFile(badge);
-            var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
-            view.findViewById(badge_id).setImageBitmap(bitmap);                            
-          } 
+            var badge = null
 
-          var title = marker.getTitle();
-          var title_id = ctx.getResources().getIdentifier('title', "id", ctx.getPackageName());
-          var titleUi = view.findViewById(title_id);
+            if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
+              badge = markersWindowImages[marker].windowImgPath
+            else
+              console.log('## not has image to custon window')
+                  
+            if(badge){
+              var bitmap = android.graphics.BitmapFactory.decodeFile(badge);
+              var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
+              view.findViewById(badge_id).setImageBitmap(bitmap);                            
+            } 
 
-          if (title != null)               
-            titleUi.setText(new android.text.SpannableString(title));
-          else 
-            titleUi.setText("");
-          
-          var snippet = marker.getSnippet();
-          var snippet_id = ctx.getResources().getIdentifier('snippet', "id", ctx.getPackageName());
-          var snippetUi = view.findViewById(snippet_id);
+            var title = marker.getTitle();
+            var title_id = ctx.getResources().getIdentifier('title', "id", ctx.getPackageName());
+            var titleUi = view.findViewById(title_id);
 
-          if (snippet)
-            snippetUi.setText(new android.text.SpannableString(snippet));
-          else
-            snippetUi.setText("");          
+            if (title != null) {
+                var titleText = new android.text.SpannableString(title);
+                titleUi.setText(titleText);
+            } else {
+                titleUi.setText("");
+            }
 
-          var phone = markersWindowImages[marker].phone;
-          var phone_id = ctx.getResources().getIdentifier('phone', "id", ctx.getPackageName());
-          var phoneUi = view.findViewById(phone_id);
+            var snippet = marker.getSnippet();
+            var snippet_id = ctx.getResources().getIdentifier('snippet', "id", ctx.getPackageName());
+            var snippetUi = view.findViewById(snippet_id);
 
-          if (phone)
-            phoneUi.setText(new android.text.SpannableString(phone));
-          else
-            phoneUi.setVisibility(android.view.View.GONE);
-          
-          var email = markersWindowImages[marker].email;
-          var email_id = ctx.getResources().getIdentifier('email', "id", ctx.getPackageName());
-          var emailUi = view.findViewById(email_id);
+            if (snippet) {
+                var snippetText = new android.text.SpannableString(snippet);
+                snippetUi.setText(snippetText);
+            } else {
+                snippetUi.setText("");
+            }
 
-          if (email)
-            emailUi.setText(new android.text.SpannableString(email));
-          else
-            emailUi.setVisibility(android.view.View.GONE);          
-          
-          var btnMarkerOpen_id = ctx.getResources().getIdentifier('btnMarkerOpen', "id", ctx.getPackageName());
-          var btnMarkerOpenUi = view.findViewById(btnMarkerOpen_id)
+            var phone = markersWindowImages[marker].phone;
+            var phone_id = ctx.getResources().getIdentifier('phone', "id", ctx.getPackageName());
+            var phoneUi = view.findViewById(phone_id);
 
-          if(markersWindowImages[marker].openOnClick){
-            btnMarkerOpenUi.setOnClickListener(new android.view.View.OnClickListener({
-              onClick: function(view){                
-                if(self._onInfoWindowClickCallback) 
-                  self._onInfoWindowClickCallback(createMarkerEventData(marker)) 
-              }
-            }))
-          }else{
-              btnMarkerOpenUi.setVisibility(android.view.View.GONE)
-          }
+            if (phone) {
+                var phoneText = new android.text.SpannableString(phone);
+                phoneUi.setText(phoneText);
+            } else {
+                phoneUi.setVisibility(android.view.View.GONE);
+            }
+
+            var email = markersWindowImages[marker].email;
+            var email_id = ctx.getResources().getIdentifier('email', "id", ctx.getPackageName());
+            var emailUi = view.findViewById(email_id);
+
+            if (email) {
+                var emailText = new android.text.SpannableString(email);
+                emailUi.setText(emailText);
+            } else {
+                emailUi.setVisibility(android.view.View.GONE);
+            }
+            
+            var btnMarkerOpen_id = ctx.getResources().getIdentifier('btnMarkerOpen', "id", ctx.getPackageName());
+            var btnMarkerOpenUi = view.findViewById(btnMarkerOpen_id)
+ 
+            if(markersWindowImages[marker].openOnClick){
+              btnMarkerOpenUi.setOnClickListener(new android.view.View.OnClickListener({
+                onClick: function(view){
+                  
+                  if(self._onInfoWindowClickCallback) 
+                    self._onInfoWindowClickCallback({                    
+                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+                    }) 
+                }
+              }))
+            }else{
+                btnMarkerOpenUi.setVisibility(android.view.View.GONE)
+            }
         },
     })    
   }
@@ -913,7 +953,8 @@ var MapView = (function (_super) {
     _lat  = isNaN(_lat) ? 0 : _lat
     _lng  = isNaN(_lng) ? 0 : _lng
     _lat2  = isNaN(_lat2) ? 0 : _lat2
-    _lng2  = isNaN(_lng2) ? 0 : _lng2    
+    _lng2  = isNaN(_lng2) ? 0 : _lng2
+
 
     // calculate the distance
     var result = 6371.0 * java.lang.Math.acos(java.lang.Math.cos(_lat2) * java.lang.Math.cos(_lat) * java.lang.Math.cos(_lng - _lng2) + java.lang.Math.sin(_lat2) * java.lang.Math.sin(_lat))

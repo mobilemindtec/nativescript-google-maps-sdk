@@ -1,0 +1,37 @@
+<Page loaded="loaded" xmlns="http://www.nativescript.org/tns.xsd" 
+  xmlns:maps="nativescript-google-maps-sdk">
+
+  <Page.actionBar>
+    <ActionBar title="Estabelecimento"></ActionBar>
+  </Page.actionBar>
+
+
+
+    <GridLayout id='layoutMapa' rows="*, auto">
+
+        <maps:mapView id="mapView" 
+            latitude="{{ mapa.latitude }}" 
+            longitude="{{ mapa.longitude }}"                                  
+            zoom="12" 
+            row="0"
+            verticalAlignment="stretch"
+            horizontalAlignment="stretch"
+            draggable="true"
+            zoonMargin="70"
+            useCustonWindow="true"
+            mapReady="OnMapReady" />
+        
+        <GridLayout columns="auto, auto" rows="auto, auto, auto" row="1">
+          <Button text="Add marker" tap="onMarkerAdd" col="0"/>
+          <Button text="Fit bounds" tap="onFitBounds" col="1"/>
+
+          <Button text="My Location" tap="onMyLocation" col="0" row="1"/>
+          <Button text="Route" tap="onRoute" col="1" row="1"/>
+
+          <Button text="Clear" tap="onClear" col="0" row="2"/>
+        </GridLayout>
+
+    </GridLayout>
+
+
+</Page>

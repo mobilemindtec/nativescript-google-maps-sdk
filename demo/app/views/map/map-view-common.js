@@ -6,9 +6,9 @@ var MAPVIEW = "MapView";
 var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin", "useCustonWindow"];
 
 var MapView = (function (_super) {
-  __extends(MapView, _super);
+  global.__extends(MapView, _super);
   function MapView() {
-    _super.apply(this, arguments);
+    _super.call(this);
   }
 
   this._onInfoWindowClickCallback = null;

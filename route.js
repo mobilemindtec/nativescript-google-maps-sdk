@@ -19,12 +19,12 @@ function GoogleParser(params) {
             'Content-Type': 'application/json'
           },                     
         }).then(function(response){
-          if (!response.ok) {
-            console.log(JSON.stringify(response));
-            throw "Ocorreu um erro desconhecido ao conectar com o servidor. Detalhes: " + response.statusText    
-          }
+              if (!response.ok) {
+                console.log(JSON.stringify(response));
+                throw "Ocorreu um erro desconhecido ao conectar com o servidor. Detalhes: " + response.statusText    
+              }
 
-          return response;
+              return response;
 
         }).then(function(response) {
 
@@ -106,7 +106,11 @@ function GoogleParser(params) {
 
             //console.log("{ lat: " + (lat / 1E5) + ", lng: " + (lng / 1E5) + "},")
 
-            decoded.push(new com.google.android.gms.maps.model.LatLng(lat / 1E5, lng / 1E5));
+            if(application.android){
+                decoded.push(new com.google.android.gms.maps.model.LatLng(lat / 1E5, lng / 1E5));
+            }else if(application.ios){
+                decoded.push(CLLocationCoordinate2DMake(lat / 1E5, lng / 1E5));
+            }
 
         }
 
@@ -147,28 +151,48 @@ function RouteTask(){
 
         this.directions(params.origin, params.destination, function(route){
 
+            if(application.android){
 
-            var options = new com.google.android.gms.maps.model
-                .PolylineOptions()
-                .width(12)
-                .color(android.graphics.Color.parseColor("#05b1fb")) 
-                .geodesic(true)
+                var options = new com.google.android.gms.maps.model
+                    .PolylineOptions()
+                    .width(12)
+                    .color(android.graphics.Color.parseColor("#05b1fb")) 
+                    .geodesic(true)
 
-            
-            for(var i = 0; i < route.getPoints().length; i++){                    
-                options.add(route.getPoints()[i]);                
-            }           
+                
+                for(var i = 0; i < route.getPoints().length; i++){                    
+                    options.add(route.getPoints()[i]);                
+                }           
 
-            if(polyline)
-                polyline.remove()
+                if(polyline)
+                    polyline.remove()
 
-            polyline = params.mapView.addPolyline(options); 
+                polyline = params.mapView.addPolyline(options); 
 
-            polyline.setClickable(true)
+                polyline.setClickable(true)
 
-            params.mapView.invalidate()
+                params.mapView.invalidate()
 
-            console.log("### add points end")
+                console.log("### add points end")
+            }else if(application.ios){
+
+                var path = GMSMutablePath.alloc().init()
+
+                for(var i = 0; i < route.getPoints().length; i++){                                        
+                    path.addCoordinate(route.getPoints()[i]);                     
+                }           
+
+                if(polyline)
+                    polyline.map = null
+
+                polyline = GMSPolyline.polylineWithPath(path)   
+                
+
+                polyline.strokeWidth = 6;
+                polyline.strokeColor = UIColor.blueColor()
+                polyline.map = params.mapView  
+                console.log("### add points end")
+            }
 
         })            
     },
@@ -183,19 +207,23 @@ function RouteTask(){
                 + "destination=" + dest.latitude + "," + dest.longitude + "&"
                 + "sensor=true&mode=driving"
 
-        console.log("##### urlRota=" + urlRota)
+        console.log(urlRota)
 
         new GoogleParser({'feedUrl': urlRota})
         .parse()
         .then(function(rota){
-            console.log("### rota=" +rota.getPoints().length)
+            console.log("### routes count=" +rota.getPoints().length)
                 done(rota)
         });
     },
 
     this.remove = function(){
-        if(polyline)
-            polyline.remove()
+        if(polyline){
+            if(application.android)
+                polyline.remove() 
+            else if(application.ios)
+                polyline.map = null
+        }
     }
 
 }

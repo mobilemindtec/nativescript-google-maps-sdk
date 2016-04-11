@@ -1,0 +1,12 @@
+{
+	"nativescript": {
+		"id": "com.sigturismo",
+		"tns-ios": {
+			"version": "1.7.0"
+		}
+	},
+	"dependencies": {
+		"nativescript-google-maps-sdk": "file:../../nativescript-google-maps-sdk",
+		"tns-core-modules": "1.7.1"
+	}
+}
