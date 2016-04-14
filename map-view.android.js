@@ -280,7 +280,20 @@ var MapView = (function (_super) {
 
     var overlayAction = function(args){      
       self.addMarker(args.origin)
-      self.addMarker(args.destination)
+      var exists = false
+
+      if(args.destination.markerKey){      
+        for(var marker in markersWindowImages){
+
+          if(markersWindowImages[marker].markerKey == args.destination.markerKey){
+            exists = true;
+            break
+          }
+        }
+      }
+      
+      if(!exists)
+        self.addMarker(args.destination)
     }
 
     if(origin && origin.latitude && origin.longitude){
@@ -294,7 +307,7 @@ var MapView = (function (_super) {
       builder.include(new com.google.android.gms.maps.model.LatLng(origin.latitude, origin.longitude))
       builder.include(new com.google.android.gms.maps.model.LatLng(parseFloat(destination.latitude), parseFloat(destination.longitude)))
       var bounds = builder.build();
-      var padding = 50
+      var padding = 100
       var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
       /// move the camera
       this._gMap.moveCamera(camUpdate);
@@ -423,13 +436,13 @@ var MapView = (function (_super) {
   MapView.prototype.fitBounds = function(centerMarker){
     var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
     
-    for (var marker in markersWindowImages) {
-        builder.include(marker.getPosition());
+    for (var marker in markersWindowImages) {            
+        builder = builder.include(markersWindowImages[marker].latLng);
     }
-    
+
     var bounds = builder.build();    
 
-    var padding = 0; // offset from edges of the map in pixels
+    var padding = 100; // offset from edges of the map in pixels
     var cu = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
     this.gMap.animateCamera(cu);
   }
@@ -479,6 +492,7 @@ var MapView = (function (_super) {
     var iconToUse = null
 
     if(opts.iconPath){      
+      
       if(opts.iconPath.indexOf('res://') > -1){
         var ctx = application.android.context
         var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
@@ -514,7 +528,12 @@ var MapView = (function (_super) {
           markerIconsCache[opts.iconPath] = iconToUse
         }
       }
+
+    }else if(opts.androidPinColor != undefined){   
+      console.log("## androidPinColor=" + opts.androidPinColor)   
+      iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(opts.androidPinColor)
     }else{
+      console.log("## use default marker color")   
       iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
     }
 
@@ -540,7 +559,8 @@ var MapView = (function (_super) {
       'windowImgPath': opts.windowImgPath,
       'phone': opts.phone || "",
       'email': opts.email || "",
-      'openOnClick': opts.openOnClick
+      'openOnClick': opts.openOnClick,
+      'latLng': latLng
     }
   
 
@@ -548,7 +568,8 @@ var MapView = (function (_super) {
       openedMarker.showInfoWindow()  
 
     if(opts.updateCamera)
-      this.updateCamera()
+      this.fitBounds()
+      //this.updateCamera()
 
     return openedMarker
   };
@@ -635,11 +656,12 @@ var MapView = (function (_super) {
 
     args = args || {}
     var lastLocation = getLastLocalization()
+    var self = this
 
     if(lastLocation){
       console.log('############## has lastLocation')
         
-      args.slatitude =  lastLocation.getLatitude() 
+      args.latitude =  lastLocation.getLatitude() 
       args.longitude = lastLocation.getLongitude()
       
       this.addMarker(args)
@@ -687,8 +709,6 @@ var MapView = (function (_super) {
 
         console.log("############# location updated to " + location)
 
-        if(onlyInitialPosition)
-          self.disableOndeEstouListener()          
         
           if(onlyInitialPosition){
             self.disableMyLocationUpdateListener()
