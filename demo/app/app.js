@@ -8,7 +8,7 @@ if(application.ios){
             _super.apply(this, arguments);
         }
         MyDelegate.prototype.applicationDidFinishLaunchingWithOptions = function (application, launchOptions) {
-        	GMSServices.provideAPIKey("yor app key");
+        	GMSServices.provideAPIKey("AIzaSyDpsSpolCM0BO3GtQlDhjsmgLAiMoKTXWA");
             return true
         };
         MyDelegate.prototype.applicationOpenURLSourceApplicationAnnotation = function (application, url, sourceApplication, annotation) {
