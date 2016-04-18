@@ -1,6 +1,9 @@
 var common = require("./map-view-common");
 var application = require('application')
 var route = require("./route");
+var colorModule = require("color");
+var Color = colorModule.Color;
+
 require("utils/module-merge").merge(common, module.exports);
 
 var onlyInitialPosition = false
@@ -181,6 +184,8 @@ var MapView = (function (_super) {
     if(!opts.iconPath){
       console.log("## use default icon")
       iconToUse = GMSMarker.markerImageWithColor(UIColor.blueColor());
+    }else if(opts.iosPinColor){
+      iconToUse = GMSMarker.markerImageWithColor(new Color(opts.iosPinColor).ios);
     }else{
       if(opts.iconPath.indexOf('res://') > -1){      
         var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
