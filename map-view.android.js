@@ -123,6 +123,8 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype._createUI = function () {
+
+    console.log("### _createUI")
     var that = new WeakRef(this);
 
     var cameraPosition = this._createCameraPosition();
@@ -459,10 +461,10 @@ var MapView = (function (_super) {
   };
 
   MapView.prototype.addMarker = function(opts) {
-    
-    console.log("####################### MapView.prototype.addMarker start")
-    console.log(JSON.stringify(opts))
-    console.log("####################### MapView.prototype.addMarker end")
+      
+    //console.log("####################### MapView.prototype.addMarker start")
+    //console.log(JSON.stringify(opts))
+    //console.log("####################### MapView.prototype.addMarker end")
 
     var self = this
 
@@ -505,35 +507,25 @@ var MapView = (function (_super) {
         if(markerIconsCache[opts.iconPath]){
           iconToUse = markerIconsCache[opts.iconPath]
         }else{
-          console.log('## icon create step 1')
           var iconGenerator = new com.google.maps.android.ui.IconGenerator(this._context)
-          console.log('## icon create step 2')
           var drawable = android.graphics.drawable.Drawable.createFromPath(opts.iconPath)
-          console.log('## icon create step 3')
           iconGenerator.setBackground(drawable)
-          console.log('## icon create step 4')
 
           var view = new android.view.View(this._context);
-          console.log('## icon create step 5')
           view.setLayoutParams(new android.view.ViewGroup.LayoutParams(10, 10));
-          console.log('## icon create step 6')
           iconGenerator.setContentView(view);
-          console.log('## icon create step 7')
 
           var bitmap = iconGenerator.makeIcon()
           iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
-          console.log('## icon create step 8')
           //iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)        
 
           markerIconsCache[opts.iconPath] = iconToUse
         }
       }
 
-    }else if(opts.androidPinColor != undefined){   
-      console.log("## androidPinColor=" + opts.androidPinColor)   
+    }else if(opts.androidPinColor != undefined){         
       iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(opts.androidPinColor)
-    }else{
-      console.log("## use default marker color")   
+    }else{      
       iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
     }
 
