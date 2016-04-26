@@ -460,7 +460,7 @@ var MapView = (function (_super) {
   }
 
   function radians(degrees){
-      return degrees * M_PI / 180.0
+      return degrees * 3.14 / 180.0
   }
 
   MapView.prototype.distance = function(params){
