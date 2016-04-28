@@ -416,7 +416,7 @@ var MapView = (function (_super) {
 
     var self = this
     var position = marker.getPosition()
-    var newLatLngZoom = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(position, 14)
+    var newLatLngZoom = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(position, this.zoom)
     this.gMap.animateCamera(newLatLngZoom, 1000, new com.google.android.gms.maps.GoogleMap.CancelableCallback({
 
       onFinish: function() {
@@ -425,7 +425,7 @@ var MapView = (function (_super) {
         point.x -= 100
         point.y -= 100
         var offsetPosition = projection.fromScreenLocation(point)
-        var newLatLng = com.google.android.gms.maps.CameraUpdateFactory.newLatLng(offsetPosition)
+        var newLatLng = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(offsetPosition, self.zoom)
         self.gMap.animateCamera(newLatLng, 300, null)
       },
 
@@ -443,10 +443,18 @@ var MapView = (function (_super) {
     }
 
     var bounds = builder.build();    
-
     var padding = 100; // offset from edges of the map in pixels
     var cu = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
-    this.gMap.animateCamera(cu);
+
+    if(centerMarker){
+      var center = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(centerMarker.getPosition(), this.zoom);
+      this.gMap.moveCamera(cu)
+      this.gMap.animateCamera(center);  
+    }else{
+      this.gMap.animateCamera(cu);  
+    }
+
+    
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
@@ -560,7 +568,7 @@ var MapView = (function (_super) {
       openedMarker.showInfoWindow()  
 
     if(opts.updateCamera)
-      this.fitBounds()
+      this.fitBounds(openedMarker)
       //this.updateCamera()
 
     return openedMarker
@@ -568,6 +576,11 @@ var MapView = (function (_super) {
 
   MapView.prototype.clear = function(){
     this._gMap.clear()
+  }
+
+
+  MapView.prototype.selectMarker = function(marker){
+    openedMarker = marker
   }
 
   MapView.prototype.closeMarker = function(){
@@ -654,9 +667,11 @@ var MapView = (function (_super) {
       console.log('############## has lastLocation')
         
       args.latitude =  lastLocation.getLatitude() 
-      args.longitude = lastLocation.getLongitude()
-      
-      this.addMarker(args)
+      args.longitude = lastLocation.getLongitude()      
+      args.marker = this.addMarker(args)
+
+      if(args.doneCallback)
+        args.doneCallback(args)
 
     }else{
       console.log('############## not has lastLocation')
@@ -666,8 +681,11 @@ var MapView = (function (_super) {
       minDistance: 1,
       myLocationUpdateCallback:  function(location){
           args.latitude = location.latitude
-          args.longitude = location.longitude
-          self.addMarker(args)
+          args.longitude = location.longitude          
+          args.marker = self.addMarker(args)
+
+          if(args.doneCallback)
+            args.doneCallback(args)
         }
       })
     }
