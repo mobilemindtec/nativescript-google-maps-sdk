@@ -149,9 +149,9 @@ var MapView = (function (_super) {
 
     
     
-    //console.log("####################### MapView.prototype.addMarker")
-    //console.log(JSON.stringify(opts))
-    //console.log("####################### MapView.prototype.addMarker")
+    console.log("####################### MapView.prototype.addMarker")
+    console.log(JSON.stringify(opts))
+    console.log("####################### MapView.prototype.addMarker")
     
 
     var self = this
@@ -181,18 +181,16 @@ var MapView = (function (_super) {
 
     var iconToUse = null
 
-    if(!opts.iconPath){
-      console.log("## use default icon")
-      iconToUse = GMSMarker.markerImageWithColor(UIColor.blueColor());
-    }else if(opts.iosPinColor){
+    if(opts.iosPinColor){
       iconToUse = GMSMarker.markerImageWithColor(new Color(opts.iosPinColor).ios);
+    }else if(!opts.iconPath){
+      iconToUse = GMSMarker.markerImageWithColor(UIColor.blueColor());
     }else{
       if(opts.iconPath.indexOf('res://') > -1){      
         var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
-        console.log("#### resName=" + resName)
         iconToUse  = UIImage.imageNamed(resName)
       }else{
-        iconToUse  = UIImage.imageWithContentsOfFile(args.iconPath);
+        iconToUse  = UIImage.imageWithContentsOfFile(opts.iconPath);
       }
     }
 
@@ -228,13 +226,15 @@ var MapView = (function (_super) {
   
 
     if(opts.showWindow){
-      openedMarker.showInfoWindow()
+      this.showWindow()
     }   
 
     if(opts.updateCamera){
       console.log("## opts.updateCamera=" + opts.updateCamera)
       this.updateCamera()
     }
+
+    console.log("## addMarker end")
 
     return openedMarker
   };
@@ -557,6 +557,7 @@ var MapView = (function (_super) {
         MyMapViewDelegate.prototype.mapViewMarkerInfoWindow = function(mapView, marker){
           
           if(self.useCustonWindow && self.useCustonWindow == true){
+            console.log("## use custon window")
             return self.defaultWindowMarkerCreator(marker)
           }
 
@@ -729,7 +730,6 @@ var MapView = (function (_super) {
 
     return outerView
   }  
-
 
   return MapView;
 })(common.MapView);
