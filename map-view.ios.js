@@ -83,6 +83,17 @@ var MapView = (function (_super) {
     configurable: true
   });
 
+  Object.defineProperty(MapView.prototype, "zoon", {
+    get: function () {
+      return this._zoom;
+    },
+    set: function(value){
+      this._zoom = value
+    },
+    enumerable: true,
+    configurable: true
+  });
+
   MapView.prototype.updateCamera = function() {
     if(!this.ios) return;
     var cameraUpdate = GMSCameraUpdate.setCamera(this._createCameraPosition());
@@ -97,8 +108,8 @@ var MapView = (function (_super) {
     var position = marker.position
 
 
-    //this._ios.camera = GMSCameraPosition.cameraWithTarget(position, zoom: 14)
-    this._ios.animateToLocation(position)
+    var camPosition = GMSCameraPosition.cameraWithTargetZoom(position, this.zoom)
+    this._ios.animateToLocation(camPosition)
   }  
 
   MapView.prototype._createCameraPosition = function() {
@@ -125,8 +136,6 @@ var MapView = (function (_super) {
 
     var bounds = GMSCoordinateBounds.alloc().init()
 
-    if(centerMarker)
-      bounds = GMSCoordinateBounds.alloc().initWithCoordinateCoordinate(centerMarker.position, centerMarker.position);
 
     for(var marker in markersWindowImages){  
 
@@ -141,8 +150,21 @@ var MapView = (function (_super) {
 
     var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)
     //this._ios.animateWithCameraUpdate(update);
-    this._ios.moveCamera(update);
-    this._ios.animateToViewingAngle(50);
+    //this._ios.moveCamera(update);
+    //this._ios.animateToViewingAngle(50);
+
+    if(centerMarker){
+      console.log("## center 1")
+      var center = GMSCameraUpdate.setTargetZoom(centerMarker.position, this.zoom);
+      //var center = GMSCameraPosition.cameraWithLatitudeLongitudeZoom(centerMarker.position.latitude, centerMarker.position.longitude, this.zoom)
+      console.log("## center 2")
+      this._ios.moveCamera(center)
+      console.log("## center 3")
+      this._ios.animateWithCameraUpdate(update);  
+      console.log("## center 4")
+    }else{
+      this._ios.animateWithCameraUpdate(update);  
+    }    
   }
 
   MapView.prototype.addMarker = function(opts) {
@@ -229,15 +251,17 @@ var MapView = (function (_super) {
       this.showWindow()
     }   
 
-    if(opts.updateCamera){
-      console.log("## opts.updateCamera=" + opts.updateCamera)
-      this.updateCamera()
-    }
+    if(opts.updateCamera)      
+      this.fitBounds(openedMarker)
 
     console.log("## addMarker end")
 
     return openedMarker
   };
+
+  MapView.prototype.selectMarker = function(marker){
+    openedMarker = marker
+  }
 
   MapView.prototype.clear = function(){
     this._ios.clear();
@@ -435,7 +459,10 @@ var MapView = (function (_super) {
       myLocationUpdateCallback:  function(location){
         args.latitude = location.latitude
         args.longitude = location.longitude
-        self.addMarker(args)
+        args.marker = self.addMarker(args)
+
+          if(args.doneCallback)
+            args.doneCallback(args)        
       }
     })
   };
@@ -497,12 +524,18 @@ var MapView = (function (_super) {
         }
 
         MyMapViewDelegate.prototype.mapViewDidChangeCameraPosition = function(mapView, position){
-          self.zoom = position.zoom
+          self._zoom = position.zoom
           _cameraPosition = position.target // CLLocationCoordinate2D
         }
 
         MyMapViewDelegate.prototype.mapViewIdleAtCameraPosition = function(mapView, position){
 
+          if(self._onCameraPositionChangeCallback){
+            self._onCameraPositionChangeCallback({
+              latitude: position.target.latitude,
+              longitude: position.target.longitude
+            })
+          }              
         }
 
         MyMapViewDelegate.prototype.mapViewDidTapAtCoordinate = function(mapView, coordinate){
