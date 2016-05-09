@@ -123,9 +123,9 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype._createUI = function () {
-
-    console.log("### _createUI")
+    
     var that = new WeakRef(this);
+    var self = this
 
     var cameraPosition = this._createCameraPosition();
 
@@ -136,9 +136,32 @@ var MapView = (function (_super) {
 
     if(cameraPosition) options = options.camera(cameraPosition);
 
-    this._android = new com.google.android.gms.maps.MapView(this._context, options);
+    var MapViewWrapper = com.google.android.gms.maps.MapView.extend({
 
+      onInterceptTouchEvent: function(ev){
 
+        if(ev.getAction() == android.view.MotionEvent.ACTION_DOWN)
+          self._mapIsTouched = true
+        else if(ev.getAction() ==   android.view.MotionEvent.ACTION_UP){
+          self._mapIsTouched = false        
+        
+
+          var camPos = self.gMap.getCameraPosition()
+
+          if(self._onCameraPositionChangeCallback){
+            self._onCameraPositionChangeCallback({
+              latitude: camPos.target.latitude,
+              longitude: camPos.target.longitude
+            })
+          }
+        }        
+
+        return this.super.onInterceptTouchEvent(ev);
+      }
+
+    })  
+
+    this._android = new MapViewWrapper(this._context, options);
     this._android.onCreate(null);
     this._android.onResume();
     var self = this
@@ -152,8 +175,6 @@ var MapView = (function (_super) {
       zoomControls.setLayoutParams(params)      
     }
     
-
-
     var mapReadyCallback = new com.google.android.gms.maps.OnMapReadyCallback({
       onMapReady: function (gMap) {
         var mView = that.get();
@@ -212,6 +233,19 @@ var MapView = (function (_super) {
             //self.createLooperAnimateCamera(point)
           }
         }))
+
+        /*
+        mView._gMap.setOnCameraChangeListener(new com.google.android.gms.maps.GoogleMap.OnCameraChangeListener({
+            
+          onCameraChange: function(cameraPosition) {
+
+            if(!self._mapIsTouched)
+              console.log("centerLat = " + cameraPosition.target.latitude + ", centerLong = " + cameraPosition.target.longitude);
+          }
+
+        }));
+        */
+        
         
         if(mView._gMap.draggable)
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener) 
@@ -452,9 +486,7 @@ var MapView = (function (_super) {
       this.gMap.animateCamera(center);  
     }else{
       this.gMap.animateCamera(cu);  
-    }
-
-    
+    } 
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
@@ -560,7 +592,9 @@ var MapView = (function (_super) {
       'phone': opts.phone || "",
       'email': opts.email || "",
       'openOnClick': opts.openOnClick,
-      'latLng': latLng
+      'latLng': latLng,
+      'latitude': opts.latitude,
+      'longitude': opts.longitude
     }
   
 
@@ -574,13 +608,24 @@ var MapView = (function (_super) {
     return openedMarker
   };
 
-  MapView.prototype.clear = function(){
-    this._gMap.clear()
-  }
+  MapView.prototype.hasMarkerLocation = function(args){
 
+    for(var marker in markersWindowImages){
+      var it = markersWindowImages[marker]
+      if(it.latitude == args.latitude && it.longitude == args.longitude)
+        return true
+    }    
+
+    return false
+
+  }
 
   MapView.prototype.selectMarker = function(marker){
     openedMarker = marker
+  }
+
+  MapView.prototype.clear = function(){
+    this._gMap.clear()
   }
 
   MapView.prototype.closeMarker = function(){
@@ -659,37 +704,37 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMyLocationMarker = function(args) {
 
-    args = args || {}
-    var lastLocation = getLastLocalization()
-    var self = this
+      args = args || {}
+      var lastLocation = getLastLocalization()
+      var self = this
 
-    if(lastLocation){
-      console.log('############## has lastLocation')
-        
-      args.latitude =  lastLocation.getLatitude() 
-      args.longitude = lastLocation.getLongitude()      
-      args.marker = this.addMarker(args)
+      if(lastLocation){
+        console.log('############## has lastLocation')
+          
+        args.latitude =  lastLocation.getLatitude() 
+        args.longitude = lastLocation.getLongitude()      
+        args.marker = this.addMarker(args)
 
-      if(args.doneCallback)
-        args.doneCallback(args)
+        if(args.doneCallback)
+          args.doneCallback(args)
 
-    }else{
-      console.log('############## not has lastLocation')
-      onlyInitialPosition = true    
-      this.enableMyLocationUpdateListener({
-      minTime: 10, 
-      minDistance: 1,
-      myLocationUpdateCallback:  function(location){
-          args.latitude = location.latitude
-          args.longitude = location.longitude          
-          args.marker = self.addMarker(args)
+      }else{
+        console.log('############## not has lastLocation')
+        onlyInitialPosition = true    
+        this.enableMyLocationUpdateListener({
+        minTime: 10, 
+        minDistance: 1,
+        myLocationUpdateCallback:  function(location){
+            args.latitude = location.latitude
+            args.longitude = location.longitude          
+            args.marker = self.addMarker(args)
 
-          if(args.doneCallback)
-            args.doneCallback(args)
-        }
-      })
-    }
-  };  
+            if(args.doneCallback)
+              args.doneCallback(args)
+          }
+        })
+      }
+    }; 
 
   MapView.prototype.getMyLocationMarker = function(myLocationUpdateCallback) {    
     var self = this

@@ -54,6 +54,10 @@ var MapView = (function (_super) {
     this._onInfoWindowLongCallback = onInfoWindowLongCallback;
   };
 
+  MapView.prototype.setCameraPositionChangeListener = function(onCameraPositionChangeCallback){
+    this._onCameraPositionChangeCallback = onCameraPositionChangeCallback;
+  };
+
   MapView.prototype.setOnMarkerDragListener = function(onMarkerDragCallback){
     this._onMarkerDragCallback = onMarkerDragCallback;
   }; 
