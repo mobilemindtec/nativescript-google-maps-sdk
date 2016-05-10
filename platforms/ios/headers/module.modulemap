@@ -1,0 +1,4 @@
+module GoogleMaps {
+  umbrella "../../../../../platforms/ios/Pods/Headers/Public"
+  export *
+}
