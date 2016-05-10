@@ -38,7 +38,10 @@ var MapView = (function (_super) {
 
     var self = this
     _onMarkerClickListener = function(marker){
-      self.updateCameraToMarker(marker)
+      console.log("## this.zoom=" + self.zoom)
+      console.log("## marker.position=" + marker.position)
+      var update = GMSCameraUpdate.setTargetZoom(marker.position, self.zoom);
+      self._ios.animateWithCameraUpdate(update);        
     }
 
     console.log("## application.resumeEvent=" + application.resumeEvent)
