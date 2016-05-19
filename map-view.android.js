@@ -165,7 +165,8 @@ var MapView = (function (_super) {
     this._android.onCreate(null);
     this._android.onResume();
     var self = this
-    
+      
+    /*
     if(this.zoonMargin){
       var zoomControls = this._android.findViewById(0x1);        
       var params = zoomControls.getLayoutParams();
@@ -173,7 +174,9 @@ var MapView = (function (_super) {
               this._context.getResources().getDisplayMetrics());
       params.setMargins(margin, margin, margin, margin);
       zoomControls.setLayoutParams(params)      
-    }
+    }*/
+
+    console.log("not margins")
     
     var mapReadyCallback = new com.google.android.gms.maps.OnMapReadyCallback({
       onMapReady: function (gMap) {
@@ -223,7 +226,7 @@ var MapView = (function (_super) {
 
             marker.showInfoWindow()
 
-            return true
+            return false
  
           }
         }))
@@ -490,7 +493,7 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
-      var uiSettings = this._gMap.getUiSettings();
+      var uiSettings = this._gMap.getUiSettings();      
       uiSettings.setZoomControlsEnabled(true);
       uiSettings.setZoomGesturesEnabled(true);
       uiSettings.setScrollGesturesEnabled(true);
@@ -498,6 +501,9 @@ var MapView = (function (_super) {
       uiSettings.setRotateGesturesEnabled(true);
       uiSettings.setCompassEnabled(true);
       uiSettings.setIndoorLevelPickerEnabled(true);
+      uiSettings.setAllGesturesEnabled(true);
+      uiSettings.setMyLocationButtonEnabled(true);      
+      uiSettings.setMapToolbarEnabled(true);
   };
 
   MapView.prototype.addMarker = function(opts) {
@@ -800,6 +806,38 @@ var MapView = (function (_super) {
     return locationListener 
   };
 
+  MapView.prototype.navigateWithGoogleNavigator = function(args){
+      
+    var mapsPkg = "com.google.android.apps.maps"
+    var gmmIntentUri = android.net.Uri.parse("google.navigation:q=" + args.latitude + "," + args.longitude);
+    var mapIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, gmmIntentUri);
+    mapIntent.setPackage(mapsPkg);
+
+    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){
+      var act = application.android.foregroundActivity || application.android.startActivity;
+      act.startActivity(mapIntent)
+    }else{
+      var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
+      application.android.currentContext.startActivity(browserIntent);              
+    }
+  }
+
+  MapView.prototype.openGoogleStreetView = function(args){
+
+    var mapsPkg = "com.google.android.apps.maps"
+    var gmmIntentUri = android.net.Uri.parse("google.streetview:cbll=" + args.latitude + "," + args.longitude);
+    var mapIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, gmmIntentUri);
+    
+    mapIntent.setPackage(mapsPkg);
+
+    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){
+      var act = application.android.foregroundActivity || application.android.startActivity;
+      act.startActivity(mapIntent)
+    }else{
+      var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
+      application.android.currentContext.startActivity(browserIntent);              
+    }
+  }
 
   MapView.prototype.getLocationFromLocationName = function(args){
 
