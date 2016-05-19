@@ -489,6 +489,28 @@ var MapView = (function (_super) {
     onlyInitialPosition = false
   }
 
+  MapView.prototype.navigateWithGoogleNavigator = function(args){
+
+
+    if (UIApplication.sharedApplication().canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
+      UIApplication.sharedApplication().openURL(NSURL.URLWithString("comgooglemaps:q=" + args.latitude + "," + args.longitude));
+    } else {
+      var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
+      UIApplication.sharedApplication()openURL(NSURL.URLWithString(iTunesLink));      
+    }    
+      
+  }
+
+  MapView.prototype.openGoogleStreetView = function(args){
+
+    if (UIApplication.sharedApplication().canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
+      UIApplication.sharedApplication().openURL(NSURL.URLWithString("comgooglemaps:cbll=" + args.latitude + "," + args.longitude));
+    } else {
+      var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
+      UIApplication.sharedApplication()openURL(NSURL.URLWithString(iTunesLink));      
+    }    
+  }  
+
   function radians(degrees){
       return degrees * 3.14 / 180.0
   }
