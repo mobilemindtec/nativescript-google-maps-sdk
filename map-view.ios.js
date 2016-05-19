@@ -585,7 +585,7 @@ var MapView = (function (_super) {
           
           //marker.showInfoWindow()
           self._ios.selectedMarker = marker;
-          return true
+          return false
 
         }
 
