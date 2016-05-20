@@ -132,7 +132,8 @@ var MapView = (function (_super) {
       uiSettings.scrollGestures = true;      
       uiSettings.rotateGestures = true;
       uiSettings.compassButton = true;
-      uiSettings.indoorPicker = true;
+      uiSettings.indoorPicker = true;      
+      //uiSettings.myLocationButton = true;            
   };
 
   MapView.prototype.fitBounds = function(centerMarker){
@@ -489,25 +490,23 @@ var MapView = (function (_super) {
     onlyInitialPosition = false
   }
 
-  MapView.prototype.navigateWithGoogleNavigator = function(args){
-
-
+  MapView.prototype.navigateWithGoogleNavigator = function(args){    
     if (UIApplication.sharedApplication().canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
-      UIApplication.sharedApplication().openURL(NSURL.URLWithString("comgooglemaps:q=" + args.latitude + "," + args.longitude));
+      var url = "comgooglemaps://?saddr=&daddr=" + args.latitude + "," + args.longitude
+      UIApplication.sharedApplication().openURL(NSURL.URLWithString(url));
     } else {
       var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
-      UIApplication.sharedApplication()openURL(NSURL.URLWithString(iTunesLink));      
+      UIApplication.sharedApplication().openURL(NSURL.URLWithString(iTunesLink));      
     }    
-      
   }
 
-  MapView.prototype.openGoogleStreetView = function(args){
-
+  MapView.prototype.openGoogleStreetView = function(args){    
     if (UIApplication.sharedApplication().canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
-      UIApplication.sharedApplication().openURL(NSURL.URLWithString("comgooglemaps:cbll=" + args.latitude + "," + args.longitude));
+      var url = "comgooglemaps://?center=" + args.latitude + "," + args.longitude + "&mapmode=streetview"
+      UIApplication.sharedApplication().openURL(NSURL.URLWithString(url));
     } else {
       var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
-      UIApplication.sharedApplication()openURL(NSURL.URLWithString(iTunesLink));      
+      UIApplication.sharedApplication().openURL(NSURL.URLWithString(iTunesLink));      
     }    
   }  
 
@@ -585,7 +584,7 @@ var MapView = (function (_super) {
           
           //marker.showInfoWindow()
           self._ios.selectedMarker = marker;
-          return false
+          return true
 
         }
 
