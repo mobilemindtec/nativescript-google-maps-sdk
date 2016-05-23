@@ -80,8 +80,8 @@ var MapView = (function (_super) {
 
   MapView.mapReadyEvent = "mapReady";
 
-  var onCameraPropertiesChanged = function(data) {
-    var mapView = data.object;
+  var onCameraPropertiesChanged = function(data) {    
+    var mapView = data.object;    
     mapView.updateCamera(data);
   }
 

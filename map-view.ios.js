@@ -17,8 +17,8 @@ var _custonWindowMarkerCreator
 var mLocationManager
 var isNetworkEnabled
 var isProviderEnabled
-
-var markersWindowImages = {}
+var IMAGE_CACHE = {}
+var MARKER_WINDOW_IMAGES = {}
 var openedMarker
 var routeTask = new route.RouteTask();  
 
@@ -141,12 +141,12 @@ var MapView = (function (_super) {
     var bounds = GMSCoordinateBounds.alloc().init()
 
 
-    for(var marker in markersWindowImages){  
+    for(var marker in MARKER_WINDOW_IMAGES){  
 
       console.log("## marker=" + marker)
-      console.log("## marker=" + markersWindowImages[marker].position)
+      console.log("## marker=" + MARKER_WINDOW_IMAGES[marker].position)
 
-      var position = markersWindowImages[marker].position
+      var position = MARKER_WINDOW_IMAGES[marker].position
 
       bounds = bounds.includingCoordinate(position)
       
@@ -175,9 +175,9 @@ var MapView = (function (_super) {
 
     
     
-    console.log("####################### MapView.prototype.addMarker")
-    console.log(JSON.stringify(opts))
-    console.log("####################### MapView.prototype.addMarker")
+    //console.log("####################### MapView.prototype.addMarker")
+    //console.log(JSON.stringify(opts))
+    //console.log("####################### MapView.prototype.addMarker")
     
 
     var self = this
@@ -185,25 +185,25 @@ var MapView = (function (_super) {
     if(this.draggable == undefined || this.draggable == null)
       this.draggable = false
 
-    if(opts.latitude && opts.longitude){
-      this.latitude = undefined
-      this.longitude = undefined
-      
-      this.latitude = opts.latitude
-      this.longitude = opts.longitude
+    if(opts.latitude){
+      if(isNaN(opts.latitude) && opts.latitude.length > 16)
+        opts.latitude = Number(opts.latitude.substring(0, 16))
+      else
+        opts.latitude = Number(opts.latitude);
+    }
+
+    if(opts.longitude){
+      if(isNaN(opts.longitude) && opts.longitude.length > 16)
+        opts.longitude = Number(opts.longitude.substring(0, 16))
+      else
+        opts.longitude = Number(opts.longitude);
     }    
 
-    if(opts.title)
-      this.title = opts.title
+    if(!opts.title)
+      opts.title = ""
 
-    if(opts.snippet)
-      this.snippet = opts.snippet
-
-    if(!this.snippet || this.snippet === 0)
-      this.snippet = ""
-
-    if(!this.title || this.title === 0)
-      this.title = ""
+    if(!opts.snippet)
+      opts.snippet = ""
 
     var iconToUse = null
 
@@ -212,11 +212,16 @@ var MapView = (function (_super) {
     }else if(!opts.iconPath){
       iconToUse = GMSMarker.markerImageWithColor(UIColor.blueColor());
     }else{
-      if(opts.iconPath.indexOf('res://') > -1){      
-        var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
-        iconToUse  = UIImage.imageNamed(resName)
+
+      if(IMAGE_CACHE[opts.iconPath]){
+        iconToUse = IMAGE_CACHE[opts.iconPath]
       }else{
-        iconToUse  = UIImage.imageWithContentsOfFile(opts.iconPath);
+        if(opts.iconPath.indexOf('res://') > -1){      
+          var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
+          iconToUse  = UIImage.imageNamed(resName)
+        }else{
+          iconToUse  = UIImage.imageWithContentsOfFile(opts.iconPath);
+        }
       }
     }
 
@@ -241,7 +246,7 @@ var MapView = (function (_super) {
       opts.openOnClick = true
 
     
-    markersWindowImages[openedMarker] = {
+    MARKER_WINDOW_IMAGES[openedMarker] = {
       'markerKey': opts.markerKey,
       'windowImgPath': opts.windowImgPath,
       'phone': opts.phone || "",
@@ -255,10 +260,14 @@ var MapView = (function (_super) {
       this.showWindow()
     }   
 
-    if(opts.updateCamera)      
-      this.fitBounds(openedMarker)
-
-    console.log("## addMarker end")
+    if(opts.updateCamera){
+      this.latitude = undefined
+      this.longitude = undefined
+      this.latitude = opts.latitude
+      this.longitude = opts.longitude
+      this.fitBounds(openedMarker)      
+    }
+  
 
     return openedMarker
   };
@@ -270,10 +279,10 @@ var MapView = (function (_super) {
   MapView.prototype.clear = function(){
     this._ios.clear();
 
-    for(marker in markersWindowImages)
+    for(marker in MARKER_WINDOW_IMAGES)
       marker.map = null;
 
-    markersWindowImages = {}
+    MARKER_WINDOW_IMAGES = {}
   }
 
   MapView.prototype.closeMarker = function(){
@@ -578,7 +587,7 @@ var MapView = (function (_super) {
           if(self._onMarkerClickCallback){
             self._onMarkerClickCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
           
@@ -589,19 +598,19 @@ var MapView = (function (_super) {
         }
 
         MyMapViewDelegate.prototype.mapViewDidTapInfoWindowOfMarker = function(mapView, marker){
-          if(self._onInfoWindowClickCallback && markersWindowImages[marker].openOnClick){
+          if(self._onInfoWindowClickCallback && MARKER_WINDOW_IMAGES[marker].openOnClick){
             self._onInfoWindowClickCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
         }
 
         MyMapViewDelegate.prototype.mapViewDidLongPressInfoWindowOfMarker = function(mapView, marker){
-          if(self._onInfoWindowLongCallback && markersWindowImages[marker].openOnClick){
+          if(self._onInfoWindowLongCallback && MARKER_WINDOW_IMAGES[marker].openOnClick){
             self._onInfoWindowLongCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
         }
@@ -625,8 +634,8 @@ var MapView = (function (_super) {
         MyMapViewDelegate.prototype.mapViewMarkerInfoContents = function(mapView, marker){
           if(self.useCustonWindow && self.useCustonWindow == true){
            
-            if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
-              badge = markersWindowImages[marker].windowImgPath
+            if(MARKER_WINDOW_IMAGES[marker] && MARKER_WINDOW_IMAGES[marker].windowImgPath)
+              badge = MARKER_WINDOW_IMAGES[marker].windowImgPath
             else
               console.log('## not has image to custon window')
 
@@ -640,7 +649,7 @@ var MapView = (function (_super) {
           if(self._onInfoWindowCloseCallback){
             self._onInfoWindowCloseCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
         }
@@ -651,7 +660,7 @@ var MapView = (function (_super) {
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart){
               self._onMarkerDragCallback.onMarkerDragStart({
                       'marker': marker,
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+                      'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
                     })
             }
           }
@@ -668,7 +677,7 @@ var MapView = (function (_super) {
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd){
               self._onMarkerDragCallback.onMarkerDragEnd({
                       'marker': marker,
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+                      'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
                     })
             }
           }
@@ -679,7 +688,7 @@ var MapView = (function (_super) {
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag){
               self._onMarkerDragCallback.onMarkerDrag({
                       'marker': marker,
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+                      'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
                     })
             }
           }
@@ -715,7 +724,7 @@ var MapView = (function (_super) {
     if(this._custonWindowMarkerCreator)
       return this._custonWindowMarkerCreator({
         'marker': marker,
-        'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+        'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
       })
 
     var anchor = marker.position            
@@ -723,8 +732,8 @@ var MapView = (function (_super) {
 
     var badge;
 
-    if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
-      badge = markersWindowImages[marker].windowImgPath
+    if(MARKER_WINDOW_IMAGES[marker] && MARKER_WINDOW_IMAGES[marker].windowImgPath)
+      badge = MARKER_WINDOW_IMAGES[marker].windowImgPath
     else
       console.log('## not has image to custon window')
 
@@ -748,17 +757,17 @@ var MapView = (function (_super) {
     snippet.text = marker.snippet
     outerView.addSubview(snippet)
 
-    if(markersWindowImages[marker].phone){
+    if(MARKER_WINDOW_IMAGES[marker].phone){
       var phone = UILabel.alloc().initWithFrame(CGRectMake(10, 45, 170, 10))
       phone.font = UIFont.systemFontOfSize(12)
-      phone.text = markersWindowImages[marker].phone
+      phone.text = MARKER_WINDOW_IMAGES[marker].phone
       outerView.addSubview(phone)
     }
 
-    if(markersWindowImages[marker].email){
+    if(MARKER_WINDOW_IMAGES[marker].email){
       var email = UILabel.alloc().initWithFrame(CGRectMake(10, 60, 170, 10))
       email.font = UIFont.systemFontOfSize(12)
-      email.text = markersWindowImages[marker].email
+      email.text = MARKER_WINDOW_IMAGES[marker].email
       outerView.addSubview(email)
     }
     
