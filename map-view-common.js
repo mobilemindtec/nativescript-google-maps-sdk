@@ -3,7 +3,7 @@ var dObservable = require("ui/core/dependency-observable");
 var proxy = require("ui/core/proxy");
 
 var MAPVIEW = "MapView";
-var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin", "useCustonWindow"];
+var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin", "zoomPosition", "navigationControlMargin", "navigationControlPosition", "useCustonWindow"];
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
