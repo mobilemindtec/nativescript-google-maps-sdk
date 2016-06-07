@@ -179,7 +179,51 @@ var MapView = (function (_super) {
     this._android.onCreate(null);
     this._android.onResume();
     var self = this
+
+    var displayMetrics = this._context.getResources().getDisplayMetrics()
+    var COMPLEX_UNIT_DIP = android.util.TypedValue.COMPLEX_UNIT_DIP
+    /*
+      @LayoutRes final int ZOOM_CONTROL_ID = 0x1;
+      @LayoutRes final int MY_LOCATION_CONTROL_ID = 0x2;
+      @LayoutRes final int NAVIGATION_CONTROL_ID = 0x4;      
+    */
+
+    if(this.zoonMargin || this.zoomPosition){
+      
+
+      var zoomControls = this._android.findViewById(0x1);     
+      var params = zoomControls.getLayoutParams();
+
+      if(this.zoonMargin)   {
+        var margins = android.util.TypedValue.applyDimension(COMPLEX_UNIT_DIP, this.zoonMargin, displayMetrics);
+        params.setMargins(margins, margins, margins, margins);
+      }
+
+      if(this.zoomPosition == 'left'){
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_BOTTOM);
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_LEFT);      
+      }
+
+      zoomControls.setLayoutParams(params)          
+    }    
  
+    if(this.navigationControlMargin || this.navigationControlPosition){
+      var navigationButtons = this._android.findViewById(0x4);        
+      var params = navigationButtons.getLayoutParams();
+
+      if(this.navigationControlMargin){
+        var margins = android.util.TypedValue.applyDimension(COMPLEX_UNIT_DIP, this.navigationControlMargin, displayMetrics);
+        params.setMargins(margins, margins, margins, margins);
+      }
+
+      if(this.navigationControlPosition == 'left'){
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_BOTTOM);
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_LEFT);      
+      }
+
+      navigationButtons.setLayoutParams(params)          
+    }
+
      
     var mapReadyCallback = new com.google.android.gms.maps.OnMapReadyCallback({
       onMapReady: function (gMap) {
@@ -813,11 +857,11 @@ var MapView = (function (_super) {
     var mapsPkg = "com.google.android.apps.maps"
     var gmmIntentUri = android.net.Uri.parse("google.navigation:q=" + args.latitude + "," + args.longitude);
     var mapIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, gmmIntentUri);
+    mapIntent.setFlags(android.content.Intent.FLAG_ACTIVITY_NO_HISTORY);
     mapIntent.setPackage(mapsPkg);
 
-    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){
-      var act = application.android.foregroundActivity || application.android.startActivity;
-      act.startActivity(mapIntent)
+    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){      
+      application.android.currentContext.startActivity(mapIntent)
     }else{
       var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
       application.android.currentContext.startActivity(browserIntent);              
