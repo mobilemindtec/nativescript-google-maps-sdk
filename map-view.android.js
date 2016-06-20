@@ -21,6 +21,7 @@ var MARKER_WINDOW_IMAGES = {}
 var openedMarker
 var routeTask = new route.RouteTask();   
 var markerIconsCache = {}
+var navigationOriginMarker
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
@@ -357,9 +358,16 @@ var MapView = (function (_super) {
     var destination = params.destination
 
     var overlayAction = function(args){      
-      self.addMarker(args.origin)
-      var exists = false
 
+      if(navigationOriginMarker){
+        navigationOriginMarker.remove()
+        navigationOriginMarker = undefined
+      }
+
+      navigationOriginMarker = self.addMarker(args.origin)
+      //var exists = false
+
+      /*
       if(args.destination.markerKey){      
         for(var marker in MARKER_WINDOW_IMAGES){
 
@@ -368,10 +376,11 @@ var MapView = (function (_super) {
             break
           }
         }
-      }
+      }*/
       
-      if(!exists)
+      if(!hasMarkerLocation(args.destination))
         self.addMarker(args.destination)
+
     }
 
     if(origin && origin.latitude && origin.longitude){
@@ -678,6 +687,12 @@ var MapView = (function (_super) {
 
   MapView.prototype.clear = function(){
     this._gMap.clear()
+
+    try{
+      System.gc()
+    }catch(e){
+      console.log("## clear")
+    }
   }
 
   MapView.prototype.closeMarker = function(){
