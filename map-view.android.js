@@ -63,6 +63,7 @@ var MapView = (function (_super) {
   var _onCameraChangeListener = new com.google.android.gms.maps.GoogleMap.OnCameraChangeListener({
     
      onCameraChange: function(position){      
+      //console.log("OnCameraChangeListener position.zoom=" + position.zoom)
       self._zoom = position.zoom
       _cameraPosition = position.target
     }
@@ -161,6 +162,7 @@ var MapView = (function (_super) {
           if(self.gMap){
 
             var camPos = self.gMap.getCameraPosition()
+            self._zoom = camPos.zoom
 
             if(self._onCameraPositionChangeCallback){
               self._onCameraPositionChangeCallback({
@@ -494,7 +496,7 @@ var MapView = (function (_super) {
 
   MapView.prototype.updateCameraToMarker = function(marker){   
 
-    //console.log("## updateCameraToMarker " + this.gMap)
+    //console.log("## updateCameraToMarker this._zoom=" + this._zoom)
 
     var self = this
     var position = marker.getPosition()
@@ -698,6 +700,10 @@ var MapView = (function (_super) {
   MapView.prototype.closeMarker = function(){
     if(openedMarker)
       openedMarker.setVisible(true)    
+  }
+
+  MapView.prototype.removeMarker = function(marker){
+    marker.remove()
   }
 
   MapView.prototype.hideWindow = function(){

@@ -292,6 +292,10 @@ var MapView = (function (_super) {
     }
   }
 
+  MapView.prototype.removeMarker = function(marker){
+    marker.map = null
+  }
+
   MapView.prototype.hideWindow = function(){
     if(openedMarker){
       this._ios.selectedMarker = null
@@ -591,6 +595,8 @@ var MapView = (function (_super) {
 
         MyMapViewDelegate.prototype.mapViewIdleAtCameraPosition = function(mapView, position){
 
+          self._zoom = position.zoom
+          
           if(self._onCameraPositionChangeCallback){
             self._onCameraPositionChangeCallback({
               latitude: position.target.latitude,
