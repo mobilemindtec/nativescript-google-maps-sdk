@@ -16,7 +16,6 @@ var mLocationManager
 var isNetworkEnabled
 var isProviderEnabled
 
-var IMAGE_CACHE = {}
 var MARKER_WINDOW_IMAGES = {}
 var openedMarker
 var routeTask = new route.RouteTask();   
@@ -506,8 +505,8 @@ var MapView = (function (_super) {
       onFinish: function() {
         var projection = self.gMap.getProjection()
         var point = projection.toScreenLocation(position)
-        point.x -= 100
-        point.y -= 100
+        //point.x -= 100
+        //point.y -= 100
         var offsetPosition = projection.fromScreenLocation(point)
         var newLatLng = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(offsetPosition, self._zoom)
         self.gMap.animateCamera(newLatLng, 300, null)
@@ -553,6 +552,17 @@ var MapView = (function (_super) {
       uiSettings.setMapToolbarEnabled(true);
   };
 
+  MapView.prototype.getImageLoader = function(){
+    if(!this.imageLoader)
+      this.imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
+
+    if(this.imageLoader.get())
+      return this.imageLoader.get()
+
+    this.imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
+    return this.imageLoader.get()
+  }
+
   MapView.prototype.addMarker = function(opts) {
       
     //console.log("####################### MapView.prototype.addMarker start")
@@ -590,35 +600,56 @@ var MapView = (function (_super) {
 
     if(opts.iconPath){      
         
-      if(IMAGE_CACHE[opts.iconPath]){
-        iconToUse =   IMAGE_CACHE[opts.iconPath]
+      if(markerIconsCache[opts.iconPath]){
+        iconToUse =   markerIconsCache[opts.iconPath]
       }else if(opts.iconPath.indexOf('res://') > -1){
         var ctx = application.android.context
         var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)          
         var restId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());          
         iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromResource(restId)
 
-        IMAGE_CACHE[opts.iconPath] = iconToUse
+        markerIconsCache[opts.iconPath] = iconToUse
       
       }else{
 
         if(markerIconsCache[opts.iconPath]){          
-          iconToUse = markerIconsCache[opts.iconPath]          
-          IMAGE_CACHE[opts.iconPath] = iconToUse
+          iconToUse = markerIconsCache[opts.iconPath]                    
         }else{
-          var iconGenerator = new com.google.maps.android.ui.IconGenerator(this._context)
-          var drawable = android.graphics.drawable.Drawable.createFromPath(opts.iconPath)
-          iconGenerator.setBackground(drawable)
 
-          var view = new android.view.View(this._context);
-          view.setLayoutParams(new android.view.ViewGroup.LayoutParams(10, 10));
-          iconGenerator.setContentView(view);
+          var loaded = false
 
-          var bitmap = iconGenerator.makeIcon()
-          iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
+          try{
 
-          markerIconsCache[opts.iconPath] = iconToUse
-          IMAGE_CACHE[opts.iconPath] = iconToUse
+            var full_path = 'file://' + opts.iconPath
+            var bitmap = this.getImageLoader().loadImageSync(full_path)
+            
+            //console.log("####################")
+            //console.log("### full_path=" + full_path)
+            //console.log("### bitmap=" + bitmap)
+            //console.log("####################")            
+
+            iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
+            markerIconsCache[opts.iconPath] = iconToUse
+
+          }catch(error){
+            console.log("## addMarker error: " + error)
+          }
+
+          if(!iconToUse){
+            //var iconGenerator = new com.google.maps.android.ui.IconGenerator(this._context)
+
+            var options = new android.graphics.BitmapFactory.Options()
+            //options.inSampleSize = 3;
+            options.inDither = false;                     //Disable Dithering mode
+            options.inPurgeable = true;                   //Tell to gc that whether it needs free memory, the Bitmap can be cleared
+            options.inInputShareable = true;              //Which kind of reference will be used to recover the Bitmap data after being clear, when it will be used in the future
+            //options.inTempStorage = new byte[16 * 1024];                 
+            options.inJustDecodeBounds = false            
+            var bitmap = android.graphics.BitmapFactory.decodeFile(opts.iconPath, options)
+
+            iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
+            markerIconsCache[opts.iconPath] = iconToUse
+          }
         }
       }
 
@@ -691,6 +722,7 @@ var MapView = (function (_super) {
     this._gMap.clear()
 
     try{
+      Runtime.getRuntime().gc()
       System.gc()
     }catch(e){
       console.log("## clear")
@@ -1017,12 +1049,25 @@ var MapView = (function (_super) {
 
                 
           if(badge){
-            var bitmap = IMAGE_CACHE[badge]
-            
+
+            var bitmap
+
+            try{
+              var full_path = 'file://' + badge
+              bitmap = this.getImageLoader().loadImageSync(full_path)
+            }catch(error){
+              console.log("## render windows error: " + error)
+            } 
+
             if(!bitmap){
-              bitmap = android.graphics.BitmapFactory.decodeFile(badge);
-              IMAGE_CACHE[badge] = bitmap                  
+              var options = new android.graphics.BitmapFactory.Options()
+              options.inDither = false;                     //Disable Dithering mode
+              options.inPurgeable = true;                   //Tell to gc that whether it needs free memory, the Bitmap can be cleared
+              options.inInputShareable = true;              //Which kind of reference will be used to recover the Bitmap data after being clear, when it will be used in the future
+              options.inJustDecodeBounds = false
+              bitmap = android.graphics.BitmapFactory.decodeFile(badge, options);   
             }
+
 
             var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
             view.findViewById(badge_id).setImageBitmap(bitmap);          
