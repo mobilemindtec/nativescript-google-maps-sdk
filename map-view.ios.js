@@ -21,6 +21,7 @@ var IMAGE_CACHE = {}
 var MARKER_WINDOW_IMAGES = {}
 var openedMarker
 var routeTask = new route.RouteTask();  
+var navigationOriginMarker
 
 
 var MapView = (function (_super) {
@@ -105,13 +106,14 @@ var MapView = (function (_super) {
 
   MapView.prototype.updateCameraToMarker = function(marker){   
 
-    //console.log("## updateCameraToMarker " + this.gMap)
+    
 
     var self = this
     var position = marker.position
 
+    console.log("## updateCameraToMarker position=" + position)
 
-    var camPosition = GMSCameraPosition.cameraWithTargetZoom(position, this.zoom)
+    var camPosition = GMSCameraPosition.cameraWithTargetZoom(position, this._zoom)
     this._ios.animateToLocation(camPosition)
   }  
 
@@ -140,15 +142,26 @@ var MapView = (function (_super) {
 
     var bounds = GMSCoordinateBounds.alloc().init()
 
+
     for(var marker in MARKER_WINDOW_IMAGES){  
+
+      //console.log("## marker=" + marker)
+      //console.log("## marker=" + MARKER_WINDOW_IMAGES[marker].position)
+
       var position = MARKER_WINDOW_IMAGES[marker].position
-      bounds = bounds.includingCoordinate(position)    
+
+      bounds = bounds.includingCoordinate(position)
+      
     }
 
     var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)
+    //this._ios.animateWithCameraUpdate(update);
+    //this._ios.moveCamera(update);
+    //this._ios.animateToViewingAngle(50);
 
     if(centerMarker){
-      var center = GMSCameraUpdate.setTargetZoom(centerMarker.position, this.zoom);
+      var center = GMSCameraUpdate.setTargetZoom(centerMarker.position, this._zoom);
+      //var center = GMSCameraPosition.cameraWithLatitudeLongitudeZoom(centerMarker.position.latitude, centerMarker.position.longitude, this.zoom)
       this._ios.moveCamera(center)
       this._ios.animateWithCameraUpdate(update);  
     }else{
@@ -170,15 +183,15 @@ var MapView = (function (_super) {
     if(this.draggable == undefined || this.draggable == null)
       this.draggable = false
 
-    if(opts.latitude && isNaN(opts.latitude)){
-      if(opts.latitude.length > 16)
+    if(opts.latitude){
+      if(isNaN(opts.latitude) && opts.latitude.length > 16)
         opts.latitude = Number(opts.latitude.substring(0, 16))
       else
         opts.latitude = Number(opts.latitude);
     }
 
-    if(opts.longitude && isNaN(opts.longitude)){
-      if(opts.longitude.length > 16)
+    if(opts.longitude){
+      if(isNaN(opts.longitude) && opts.longitude.length > 16)
         opts.longitude = Number(opts.longitude.substring(0, 16))
       else
         opts.longitude = Number(opts.longitude);
@@ -276,6 +289,10 @@ var MapView = (function (_super) {
     }
   }
 
+  MapView.prototype.removeMarker = function(marker){
+    marker.map = null
+  }
+
   MapView.prototype.hideWindow = function(){
     if(openedMarker){
       this._ios.selectedMarker = null
@@ -296,9 +313,36 @@ var MapView = (function (_super) {
     var origin = params.origin
     var destination = params.destination
 
-    var overlayAction = function(args){      
-      self.addMarker(args.origin)
-      self.addMarker(args.destination)
+    var overlayAction = function(args){     
+
+      if(navigationOriginMarker){
+        navigationOriginMarker.map = undefined
+        navigationOriginMarker = undefined
+      }
+
+      navigationOriginMarker = self.addMarker(args.origin)
+      /*
+      var exists = false
+
+      if(args.destination.markerKey){      
+        for(var marker in MARKER_WINDOW_IMAGES){
+
+          if(MARKER_WINDOW_IMAGES[marker].markerKey == args.destination.markerKey){
+            exists = true;
+            break
+          }
+        }
+      }
+      
+      if(!exists)
+        self.addMarker(args.destination)
+      */
+
+      if(!hasMarkerLocation(args.destination))
+        self.addMarker(args.destination)
+
+      //self.addMarker(args.origin)
+      //self.addMarker(args.destination)
     }
 
     if(origin && origin.latitude && origin.longitude){
@@ -351,6 +395,18 @@ var MapView = (function (_super) {
       }
     })   
   }
+
+  MapView.prototype.hasMarkerLocation = function(args){
+
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == args.latitude && it.longitude == args.longitude)
+        return true
+    }    
+
+    return false
+
+  }  
 
   MapView.prototype.navigateDisable = function(){
     _myLocationUpdateRouteCallback = null
@@ -413,7 +469,7 @@ var MapView = (function (_super) {
     if(!this.locationManagerDelegate)
       this.locationManagerDelegate = new MyLocationDelegate();
 
-    if(!this.locationManager){
+    if(!this.locationManager || !this.locationManager.delegate){
       this.locationManager = CLLocationManager.alloc().init();
       this.locationManager.delegate = this.locationManagerDelegate;
     }
@@ -436,8 +492,8 @@ var MapView = (function (_super) {
       this.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
 
       // Only report to location manager if the user has traveled 1000 meters
-      this.locationManager.distanceFilter = params.minDistance;      
-      this.locationManager.activityType = CLActivityTypeAutomotiveNavigation;      
+      this.locationManager.distanceFilter = params.minDistance > 0 ? params.minDistance : 1;      
+      this.locationManager.activityType = CLActivityTypeAutomotiveNavigation;  
       this.locationManager.startMonitoringSignificantLocationChanges()
       console.log("## startMonitoringSignificantLocationChanges")
     }
@@ -479,7 +535,7 @@ var MapView = (function (_super) {
 
     this.locationManager.stopMonitoringSignificantLocationChanges()
     this.locationManager.stopUpdatingLocation()
-    this.locationManager = null
+    this.locationManager.delegate = undefined
 
     onlyInitialPosition = false
   }
@@ -507,18 +563,6 @@ var MapView = (function (_super) {
   function radians(degrees){
       return degrees * 3.14 / 180.0
   }
-
-  MapView.prototype.hasMarkerLocation = function(args){
-
-    for(var marker in MARKER_WINDOW_IMAGES){
-      var it = MARKER_WINDOW_IMAGES[marker].position
-      if(it.latitude == args.latitude && it.longitude == args.longitude)
-        return true
-    }    
-
-    return false
-
-  }  
 
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
@@ -560,6 +604,8 @@ var MapView = (function (_super) {
 
         MyMapViewDelegate.prototype.mapViewIdleAtCameraPosition = function(mapView, position){
 
+          self._zoom = position.zoom
+          
           if(self._onCameraPositionChangeCallback){
             self._onCameraPositionChangeCallback({
               latitude: position.target.latitude,
@@ -717,7 +763,7 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype.defaultWindowMarkerCreator = function(marker){
-    
+
     if(this._custonWindowMarkerCreator)
       return this._custonWindowMarkerCreator({
         'marker': marker,
@@ -734,16 +780,20 @@ var MapView = (function (_super) {
     else
       console.log('## not has image to custon window')
 
+
     var outerView = UIImageView.alloc().initWithFrame(CGRectMake(0, 0, 270, 155))
     outerView.contentMode = UIViewContentModeScaleToFill
     outerView.image = UIImage.imageNamed("bubble")
     //outerView.backgroundColor = UIColor.whiteColor()
+
 
     var title = UILabel.alloc().initWithFrame(CGRectMake(10, 10, 170, 10))
     title.font = UIFont.systemFontOfSize(14)
     title.text = marker.title
     title.textColor = UIColor.blueColor()
     outerView.addSubview(title)
+
+
 
     var snippet = UILabel.alloc().initWithFrame(CGRectMake(10, 30, 170, 10))
     snippet.font = UIFont.systemFontOfSize(12)
@@ -772,7 +822,6 @@ var MapView = (function (_super) {
     if(badge){              
       var image 
       if(badge.indexOf('res://') > -1){      
-        console.log("step 10")
         var resName = badge.substring('res://'.length, badge.length)
         console.log("#### resName=" + resName)
         image = UIImage.imageNamed(resName)
@@ -780,12 +829,13 @@ var MapView = (function (_super) {
         image = UIImage.imageWithContentsOfFile(badge);
       }
 
+      console.log("## image=" + image)
+
       var imageView = UIImageView.alloc().initWithImage(image)
-      imageView.frame = CGRectMake(170, 5, 90, 80)
+      imageView.frame = CGRectMake(170, 10, 100, 80)
       imageView.contentMode = UIViewContentModeScaleAspectFit
       outerView.addSubview(imageView)
     }
-
 
     return outerView
   }  
@@ -794,4 +844,4 @@ var MapView = (function (_super) {
 })(common.MapView);
 
 
-exports.MapView = MapView;  
+exports.MapView = MapView;
