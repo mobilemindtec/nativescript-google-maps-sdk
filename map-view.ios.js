@@ -161,7 +161,6 @@ var MapView = (function (_super) {
 
     if(centerMarker){
       var center = GMSCameraUpdate.setTargetZoom(centerMarker.position, this._zoom);
-      //var center = GMSCameraPosition.cameraWithLatitudeLongitudeZoom(centerMarker.position.latitude, centerMarker.position.longitude, this.zoom)
       this._ios.moveCamera(center)
       this._ios.animateWithCameraUpdate(update);  
     }else{
@@ -226,11 +225,11 @@ var MapView = (function (_super) {
     if(opts.clear)
       this.clear()
 
-    var latLng = CLLocationCoordinate2DMake(opts.latitude, opts.longitude)//.takeRetainedValue();
+    var latLng = CLLocationCoordinate2DMake(this.latitude, this.longitude)//.takeRetainedValue();
     openedMarker = GMSMarker.alloc().init()
     openedMarker.position = latLng;    
-    openedMarker.title = opts.title;
-    openedMarker.snippet = opts.snippet;    
+    openedMarker.title = this.title;
+    openedMarker.snippet = this.snippet;    
     openedMarker.draggable = this.draggable;
     openedMarker.icon  = iconToUse;
 
