@@ -50,7 +50,7 @@ var MapView = (function (_super) {
       console.log("## onresume")
 
       if(self.locationManager){
-        self.locationManager.stopMonitoringSignificantLocationChanges();
+        //self.locationManager.startMonitoringSignificantLocationChanges();
         self.locationManager.startUpdatingLocation();
       }
 
@@ -61,7 +61,7 @@ var MapView = (function (_super) {
 
       if(self.locationManager){
         self.locationManager.stopUpdatingLocation();
-        self.locationManager.startMonitoringSignificantLocationChanges();
+        //self.locationManager.stopMonitoringSignificantLocationChanges();
       }
 
     })
@@ -105,16 +105,11 @@ var MapView = (function (_super) {
   };
 
   MapView.prototype.updateCameraToMarker = function(marker){   
-
-    
-
-    var self = this
     var position = marker.position
-
-    console.log("## updateCameraToMarker position=" + position)
-
-    var camPosition = GMSCameraPosition.cameraWithTargetZoom(position, this._zoom)
-    this._ios.animateToLocation(camPosition)
+     //var camPosition = GMSCameraPosition.cameraWithTargetZoom(position, 14)
+    var center = GMSCameraUpdate.setTargetZoom(position, this._zoom);
+    //this._ios.moveCamera(center)
+    this._ios.animateWithCameraUpdate(center)
   }  
 
   MapView.prototype._createCameraPosition = function() {
@@ -144,20 +139,11 @@ var MapView = (function (_super) {
 
 
     for(var marker in MARKER_WINDOW_IMAGES){  
-
-      //console.log("## marker=" + marker)
-      //console.log("## marker=" + MARKER_WINDOW_IMAGES[marker].position)
-
       var position = MARKER_WINDOW_IMAGES[marker].position
-
-      bounds = bounds.includingCoordinate(position)
-      
+      bounds = bounds.includingCoordinate(position)      
     }
 
     var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)
-    //this._ios.animateWithCameraUpdate(update);
-    //this._ios.moveCamera(update);
-    //this._ios.animateToViewingAngle(50);
 
     if(centerMarker){
       var center = GMSCameraUpdate.setTargetZoom(centerMarker.position, this._zoom);
@@ -225,11 +211,11 @@ var MapView = (function (_super) {
     if(opts.clear)
       this.clear()
 
-    var latLng = CLLocationCoordinate2DMake(this.latitude, this.longitude)//.takeRetainedValue();
+    var latLng = CLLocationCoordinate2DMake(opts.latitude, opts.longitude)//.takeRetainedValue();
     openedMarker = GMSMarker.alloc().init()
     openedMarker.position = latLng;    
-    openedMarker.title = this.title;
-    openedMarker.snippet = this.snippet;    
+    openedMarker.title = opts.title;
+    openedMarker.snippet = opts.snippet;    
     openedMarker.draggable = this.draggable;
     openedMarker.icon  = iconToUse;
 
@@ -320,28 +306,9 @@ var MapView = (function (_super) {
       }
 
       navigationOriginMarker = self.addMarker(args.origin)
-      /*
-      var exists = false
-
-      if(args.destination.markerKey){      
-        for(var marker in MARKER_WINDOW_IMAGES){
-
-          if(MARKER_WINDOW_IMAGES[marker].markerKey == args.destination.markerKey){
-            exists = true;
-            break
-          }
-        }
-      }
-      
-      if(!exists)
-        self.addMarker(args.destination)
-      */
 
       if(!hasMarkerLocation(args.destination))
         self.addMarker(args.destination)
-
-      //self.addMarker(args.origin)
-      //self.addMarker(args.destination)
     }
 
     if(origin && origin.latitude && origin.longitude){
@@ -356,8 +323,7 @@ var MapView = (function (_super) {
       bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(origin.latitude, origin.longitude))
       bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(parseFloat(destination.latitude), parseFloat(destination.longitude)))      
       
-      var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)
-      //this._ios.animateWithCameraUpdate(update);
+      var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)      
       this._ios.moveCamera(update);
       this._ios.animateToViewingAngle(50);
       
@@ -488,12 +454,12 @@ var MapView = (function (_super) {
       console.log("## startUpdatingLocation")
     }else{
 
-      this.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
 
       // Only report to location manager if the user has traveled 1000 meters
-      this.locationManager.distanceFilter = params.minDistance > 0 ? params.minDistance : 1;      
-      this.locationManager.activityType = CLActivityTypeAutomotiveNavigation;  
-      this.locationManager.startMonitoringSignificantLocationChanges()
+      this.locationManager.activityType = CLActivityTypeOtherNavigation //CLActivityTypeAutomotiveNavigation; 
+      this.locationManager.requestAlwaysAuthorization()    
+      //this.locationManager.startMonitoringSignificantLocationChanges()
+      this.locationManager.startUpdatingLocation();
       console.log("## startMonitoringSignificantLocationChanges")
     }
 
@@ -532,9 +498,11 @@ var MapView = (function (_super) {
 
   MapView.prototype.disableMyLocationUpdateListener = function(){
 
-    this.locationManager.stopMonitoringSignificantLocationChanges()
-    this.locationManager.stopUpdatingLocation()
-    this.locationManager.delegate = undefined
+    //this.locationManager.stopMonitoringSignificantLocationChanges()
+    if(this.locationManager){
+      this.locationManager.stopUpdatingLocation()
+      this.locationManager = undefined
+    }
 
     onlyInitialPosition = false
   }
@@ -713,7 +681,7 @@ var MapView = (function (_super) {
           if(self.draggable){
             var position = marker.position
             self.latitude = position.latitude
-            self.longitude = position.longitud
+            self.longitude = position.longitude
             console.log("############## onMarkerDragEnd")
 
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd){
