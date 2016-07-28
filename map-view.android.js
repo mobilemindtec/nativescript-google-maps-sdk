@@ -21,6 +21,8 @@ var openedMarker
 var routeTask = new route.RouteTask();   
 var markerIconsCache = {}
 var navigationOriginMarker
+var imageLoader
+var myLocationListenerList = []
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
@@ -366,21 +368,20 @@ var MapView = (function (_super) {
       }
 
       navigationOriginMarker = self.addMarker(args.origin)
-      //var exists = false
-
-      /*
-      if(args.destination.markerKey){      
-        for(var marker in MARKER_WINDOW_IMAGES){
-
-          if(MARKER_WINDOW_IMAGES[marker].markerKey == args.destination.markerKey){
-            exists = true;
-            break
-          }
-        }
-      }*/
       
-      if(!hasMarkerLocation(args.destination))
+      if(!self.hasMarkerLocation(args.destination))
         self.addMarker(args.destination)
+
+      if(args.origin && args.origin.latitude && args.origin.longitude){
+        var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
+        builder.include(new com.google.android.gms.maps.model.LatLng(getCoordinate(args.origin.latitude), getCoordinate(args.origin.longitude)))
+        builder.include(new com.google.android.gms.maps.model.LatLng(getCoordinate(args.destination.latitude), getCoordinate(args.destination.longitude)))
+        var bounds = builder.build();
+        var padding = 100
+        var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
+        self._gMap.moveCamera(camUpdate);
+        self._gMap.animateCamera(camUpdate)        
+      }
 
     }
 
@@ -391,17 +392,6 @@ var MapView = (function (_super) {
         destination: destination
       })
 
-      var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
-      builder.include(new com.google.android.gms.maps.model.LatLng(origin.latitude, origin.longitude))
-      builder.include(new com.google.android.gms.maps.model.LatLng(parseFloat(destination.latitude), parseFloat(destination.longitude)))
-      var bounds = builder.build();
-      var padding = 100
-      var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
-      /// move the camera
-      this._gMap.moveCamera(camUpdate);
-      //or animate the camera...
-      this._gMap.animateCamera(camUpdate)
-
       routeTask.execute({origin: origin, destination: destination, mapView: this._gMap})
     }
 
@@ -409,10 +399,8 @@ var MapView = (function (_super) {
       params.doneFirstRote()
 
 
-    this.enableMyLocationUpdateListener({
-      minTime: 60000,
-      minDistance: 10,
-      myLocationRouteCallback: function(args){
+    var runMyLocation = function(){
+      self.getMyLocationMarker(function(args){
 
         console.log("### myLocationRouteCallback")
 
@@ -424,16 +412,44 @@ var MapView = (function (_super) {
           origin: origin,
           destination: destination
         })
-        
+      
         routeTask.execute({origin: origin, destination: destination, mapView: self._gMap})
-      }
+      })       
+    }
+
+    var mHandler = new android.os.Handler()
+    var first = true
+    var onRequestLocation = new java.lang.Runnable({                
+        run: function(){
+
+          if(!_myLocationUpdateCallback && !first)
+              return
+          
+          mHandler.postDelayed(onRequestLocation, 1000*10);            
+          runMyLocation()
+          
+          first = false
+        }
     })   
+    onRequestLocation.run()      
+    
   }
 
-  MapView.prototype.navigateDisable = function(){
-    _myLocationUpdateCallback = null
+  MapView.prototype.navigateDisable = function(){    
+    
     this.disableMyLocationUpdateListener()
+    
+    _myLocationUpdateCallback = null    
+    
     routeTask.remove()
+
+    if(navigationOriginMarker)
+      this.removeMarker(navigationOriginMarker)
+
+    // remove algum listener que ficou para tras
+    for(var i = 0; i < myLocationListenerList.length; i++)
+      if(mLocationManager)
+        mLocationManager.removeUpdates(myLocationListenerList[i])
   }
 
   MapView.prototype._createCameraPosition = function() {
@@ -552,15 +568,15 @@ var MapView = (function (_super) {
       uiSettings.setMapToolbarEnabled(true);
   };
 
-  MapView.prototype.getImageLoader = function(){
-    if(!this.imageLoader)
-      this.imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
+  function getImageLoader(){
+    if(!imageLoader)
+      imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
 
-    if(this.imageLoader.get())
-      return this.imageLoader.get()
+    if(imageLoader.get())
+      return imageLoader.get()
 
-    this.imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
-    return this.imageLoader.get()
+    imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
+    return imageLoader.get()
   }
 
   MapView.prototype.addMarker = function(opts) {
@@ -621,7 +637,7 @@ var MapView = (function (_super) {
           try{
 
             var full_path = 'file://' + opts.iconPath
-            var bitmap = this.getImageLoader().loadImageSync(full_path)
+            var bitmap = getImageLoader().loadImageSync(full_path)
             
             //console.log("####################")
             //console.log("### full_path=" + full_path)
@@ -754,6 +770,7 @@ var MapView = (function (_super) {
     console.log("### enableOndeEstouListener")
 
     mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
+    
 
     var isGPSEnabled = mLocationManager
             .isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
@@ -764,6 +781,8 @@ var MapView = (function (_super) {
 
 
     _locationListener = this.createLocationListener()
+
+    myLocationListenerList.push(_locationListener)
 
     params.minTime = params.minTime ? params.minTime : 60000
     params.minDistance = params.minDistance ? params.minDistance : 10
@@ -845,14 +864,15 @@ var MapView = (function (_super) {
     var self = this
     onlyInitialPosition = true    
     this.enableMyLocationUpdateListener({
-      minTime: 10, 
-      minDistance: 1,
+      minTime: 0, 
+      minDistance: 0,
       myLocationUpdateCallback:  myLocationUpdateCallback
     })
   };   
 
   MapView.prototype.disableMyLocationUpdateListener = function(){
-    if(_locationListener && mLocationManager)
+
+    if(mLocationManager && _locationListener)
       mLocationManager.removeUpdates(_locationListener)
 
     onlyInitialPosition = false
@@ -1019,6 +1039,7 @@ var MapView = (function (_super) {
 
   function createCustonWindowMarker(){
 
+    var self = this
     return new com.google.android.gms.maps.GoogleMap.InfoWindowAdapter({
         
           
@@ -1054,7 +1075,7 @@ var MapView = (function (_super) {
 
             try{
               var full_path = 'file://' + badge
-              bitmap = this.getImageLoader().loadImageSync(full_path)
+              bitmap = getImageLoader().loadImageSync(full_path)
             }catch(error){
               console.log("## render windows error: " + error)
             } 
@@ -1133,20 +1154,30 @@ var MapView = (function (_super) {
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
 
-    var _lat  = isNaN(params.lat) ? radians(java.lang.Double.parseDouble(params.lat)) : radians(params.lat)
-    var _lng  = isNaN(params.lng) ? radians(java.lang.Double.parseDouble(params.lng)) : radians(params.lng)
-    var _lat2 = isNaN(params.lat2) ? radians(java.lang.Double.parseDouble(params.lat2)) : radians(params.lat2)
-    var _lng2 = isNaN(params.lng2) ? radians(java.lang.Double.parseDouble(params.lng2)) : radians(params.lng2)
-
-    _lat  = isNaN(_lat) ? 0 : _lat
-    _lng  = isNaN(_lng) ? 0 : _lng
-    _lat2  = isNaN(_lat2) ? 0 : _lat2
-    _lng2  = isNaN(_lng2) ? 0 : _lng2    
+    var _lat  = radians(getCoordinate(params.lat))
+    var _lng  = radians(getCoordinate(params.lng))
+    var _lat2 = radians(getCoordinate(params.lat2))
+    var _lng2 = radians(getCoordinate(params.lng2))
 
     // calculate the distance
     var result = 6371.0 * java.lang.Math.acos(java.lang.Math.cos(_lat2) * java.lang.Math.cos(_lat) * java.lang.Math.cos(_lng - _lng2) + java.lang.Math.sin(_lat2) * java.lang.Math.sin(_lat))
     return result
   }  
+
+  function getCoordinate(coordinate){
+
+    if(!coordinate)
+      return 0.0
+
+    if(typeof coordinate == 'number')
+      return coordinate  
+
+    if(isNaN(coordinate) && coordinate.length > 16)      
+      return java.lang.Double.parseDouble(coordinate.substring(0, 16))    
+    else
+      return java.lang.Double.parseDouble(coordinate)    
+
+  }
 
   return MapView;
 
