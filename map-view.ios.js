@@ -292,11 +292,10 @@ var MapView = (function (_super) {
 
   MapView.prototype.navigateEnable = function(params){
 
-         
-
     var self = this
     var origin = params.origin
     var destination = params.destination
+    var firstRouteIsDone = false
 
     var overlayAction = function(args){     
 
@@ -309,31 +308,51 @@ var MapView = (function (_super) {
 
       if(!hasMarkerLocation(args.destination))
         self.addMarker(args.destination)
+      else
+        console.log("## not add destination to route")
+    
+      if(args.origin && args.origin.latitude && args.origin.longitude){
+        var bounds = GMSCoordinateBounds.alloc().init()        
+        bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(origin.latitude, origin.longitude))
+        bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(parseFloat(destination.latitude), parseFloat(destination.longitude)))      
+
+        var coordenates = routeTask.getCoordenates()
+        console.log("## " + coordenates.length + "coordenates founds to route")
+        
+        for(var i in coordenates)
+          bounds = bounds.includingCoordinate(coordenates[i])
+
+        var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)      
+        this._ios.moveCamera(update);
+        this._ios.animateToViewingAngle(50);
+        
+      }
     }
 
-    if(origin && origin.latitude && origin.longitude){
-
-      overlayAction({
-        origin: origin,
-        destination: destination
+    if(origin && origin.latitude && origin.longitude){          
+      routeTask.execute({
+        origin: origin, 
+        destination: destination, 
+        mapView: this._ios
+        doneCallback: function(attrs){
+          overlayAction({
+            origin: attrs.origin,
+            destination: attrs.destination
+          })       
+        }
       })
 
-      var bounds = GMSCoordinateBounds.alloc().init()
-      
-      bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(origin.latitude, origin.longitude))
-      bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(parseFloat(destination.latitude), parseFloat(destination.longitude)))      
-      
-      var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)      
-      this._ios.moveCamera(update);
-      this._ios.animateToViewingAngle(50);
-      
+      if(params.notUpdateRoute){
+        params.doneFirstRote()
+        return
+      } 
 
-      console.log("routeTask.execute")
-      routeTask.execute({origin: origin, destination: destination, mapView: this._ios})
+      if(params.doneFirstRote){
+        firstRouteIsDone = true
+        params.doneFirstRote()
+      }
     }
 
-    if(params.doneFirstRote)
-      params.doneFirstRote()
 
     console.log("## goto enableMyLocationListener")
     onlyInitialPosition = false
@@ -349,14 +368,24 @@ var MapView = (function (_super) {
         origin.longitude = args.longitude
 
 
-        overlayAction({
-          origin: origin,
-          destination: destination
+        
+        routeTask.execute({
+          origin: origin, 
+          destination: destination, 
+          mapView: self._ios,
+          doneCallback: function(arrts){
+            overlayAction({
+              origin: attrs.origin,
+              destination: attrs.destination
+            })       
+          }
         })
 
+        if(params.doneFirstRote && !firstRouteIsDone){
+          firstRouteIsDone = true
+          params.doneFirstRote()
+        }
 
-        
-        routeTask.execute({origin: origin, destination: destination, mapView: self._ios})
       }
     })   
   }

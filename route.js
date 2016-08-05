@@ -2,9 +2,10 @@ var application = require("application");
 
 var polyline
 
+
 function GoogleParser(params) {
 
-    this.feedUrl = params.feedUrl,
+    this.feedUrl = params.feedUrl,    
 
     this.parse = function() {
 
@@ -145,13 +146,18 @@ function Route() {
 
 function RouteTask(){
 
+    this.routeObj = undefined,
 
     this.execute = function(params){
 
+        var self = this
 
         this.directions(params.origin, params.destination, function(route){
 
+            self.routeObj = route
+
             if(application.android){
+                
 
                 var options = new com.google.android.gms.maps.model
                     .PolylineOptions()
@@ -160,39 +166,37 @@ function RouteTask(){
                     .geodesic(true)
 
                 
-                for(var i = 0; i < route.getPoints().length; i++){                    
+                for(var i = 0; i < route.getPoints().length; i++)               
                     options.add(route.getPoints()[i]);                
-                }           
-
+                
                 if(polyline)
                     polyline.remove()
-
-                polyline = params.mapView.addPolyline(options); 
-
-                polyline.setClickable(true)
-
-                params.mapView.invalidate()
-
-                console.log("### add points end")
+                
+                polyline = params.mapView.addPolyline(options);                 
+                polyline.setClickable(true)                
+                //params.mapView.invalidate()
+                
             }else if(application.ios){
 
                 var path = GMSMutablePath.alloc().init()
 
-                for(var i = 0; i < route.getPoints().length; i++){                                        
+                for(var i = 0; i < route.getPoints().length; i++)                                    
                     path.addCoordinate(route.getPoints()[i]);                     
-                }           
 
                 if(polyline)
                     polyline.map = null
 
                 polyline = GMSPolyline.polylineWithPath(path)   
                 
-
                 polyline.strokeWidth = 6;
                 polyline.strokeColor = UIColor.blueColor()
                 polyline.map = params.mapView  
                 console.log("### add points end")
             }
+
+
+            if(params.doneCallback)
+                params.doneCallback(params)
 
         })            
     },
@@ -207,13 +211,13 @@ function RouteTask(){
                 + "destination=" + dest.latitude + "," + dest.longitude + "&"
                 + "sensor=true&mode=driving"
 
-        console.log(urlRota)
+        //console.log(urlRota)
+
 
         new GoogleParser({'feedUrl': urlRota})
         .parse()
-        .then(function(rota){
-            console.log("### routes count=" +rota.getPoints().length)
-                done(rota)
+        .then(function(rota){            
+            done(rota)            
         });
     },
 
@@ -224,6 +228,12 @@ function RouteTask(){
             else if(application.ios)
                 polyline.map = null
         }
+    },
+
+    this.getCoordenates = function(){
+        if(this.routeObj)
+            return this.routeObj.getPoints()
+        return []
     }
 
 }

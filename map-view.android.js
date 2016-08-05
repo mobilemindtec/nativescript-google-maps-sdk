@@ -371,49 +371,71 @@ var MapView = (function (_super) {
       
       if(!self.hasMarkerLocation(args.destination))
         self.addMarker(args.destination)
+      else
+        console.log("## not add destination to route")      
 
       if(args.origin && args.origin.latitude && args.origin.longitude){
         var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
         builder.include(new com.google.android.gms.maps.model.LatLng(getCoordinate(args.origin.latitude), getCoordinate(args.origin.longitude)))
         builder.include(new com.google.android.gms.maps.model.LatLng(getCoordinate(args.destination.latitude), getCoordinate(args.destination.longitude)))
+
+        var coordenates = routeTask.getCoordenates()
+        console.log("## " + coordenates.length + "coordenates founds to route")
+        
+        for(var i in coordenates)
+          builder.include(coordenates[i])
+        
         var bounds = builder.build();
         var padding = 100
         var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
         self._gMap.moveCamera(camUpdate);
-        self._gMap.animateCamera(camUpdate)        
+        self._gMap.animateCamera(camUpdate)            
       }
 
     }
 
     if(origin && origin.latitude && origin.longitude){
 
-      overlayAction({
-        origin: origin,
-        destination: destination
+      routeTask.execute({
+        origin: origin, 
+        destination: destination, 
+        mapView: this._gMap, 
+        doneCallback: function(attrs){                    
+          overlayAction({
+            origin: attrs.origin,
+            destination: attrs.destination
+          })       
+        }
       })
 
-      routeTask.execute({origin: origin, destination: destination, mapView: this._gMap})
+      if(params.notUpdateRoute){
+        params.doneFirstRote()
+        return
+      }
+      
+      if(params.doneFirstRote)
+        params.doneFirstRote()
     }
-
-    if(params.doneFirstRote)
-      params.doneFirstRote()
 
 
     var runMyLocation = function(){
       self.getMyLocationMarker(function(args){
 
-        console.log("### myLocationRouteCallback")
-
         origin.latitude = args.latitude
         origin.longitude = args.longitude
-
-
-        overlayAction({
-          origin: origin,
-          destination: destination
-        })
       
-        routeTask.execute({origin: origin, destination: destination, mapView: self._gMap})
+        routeTask.execute({
+          origin: origin, 
+          destination: destination, 
+          mapView: self._gMap, 
+          doneCallback: function(){
+            overlayAction({
+              origin: attrs.origin,
+              destination: attrs.destination
+            })          
+          }
+        })
+
       })       
     }
 
@@ -425,7 +447,8 @@ var MapView = (function (_super) {
           if(!_myLocationUpdateCallback && !first)
               return
           
-          mHandler.postDelayed(onRequestLocation, 1000*10);            
+          if(!params.notUpdateRoute)
+            mHandler.postDelayed(onRequestLocation, 1000*10);            
           runMyLocation()
           
           first = false
