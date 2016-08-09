@@ -2,8 +2,9 @@
 
 Read Google Maps ApI Documentation at https://developers.google.com/maps/documentation/android-api/intro
 
-Atention!!!! Don't forget of add google-service.json at platforms/android app folder and update you android api, because gradle plugin
-and dependencies use local libs
+Atention!!!! Don't forget of add google-service.json at platforms/android app folder and update you android api, because gradle plugin and dependencies use local libs
+
+Create google-services.json at https://developers.google.com/mobile/add
 
 ## Android 
 
@@ -17,8 +18,8 @@ buildscript {
     }
 
     dependencies {
-        classpath "com.android.tools.build:gradle:1.3.1"
-        classpath 'com.google.gms:google-services:1.5.0'
+    	classpath 'com.android.tools.build:gradle:2.0.0-alpha3'
+    	classpath 'com.google.gms:google-services:2.0.0-alpha3'
     }
 }
 ```
@@ -143,26 +144,28 @@ exports.OnMapReady =  function(args) {
   mapView.setOnInfoWindowClickListener(mapCallback.onInfoWindowClickCallback)
   mapView.setOnInfoWindowCloseListener(mapCallback.onInfoWindowCloseCallback)    
   mapView.setOnMarkerClickListener(mapCallback.onMarkerClickCallback)
+  mapView.setCameraPositionChangeListener(mapCallback.onCameraPositionChange)
 }
 ```
 
 ### Features
 
-* add markers / custon icon pin
-* trace route / navigate
-* fit bounds
-* custon window marker
-* events - marker click, marker drag, window marker click
-* get/add my location
-* clear
+* Add markers / custon icon pin
+* Trace route / navigate
+* Fit bounds
+* Custon window marker
+* Events - marker click, marker drag, window marker click, map postion change
+* Get/add my location
+* Clear markers
+* Fit Bounds
 * Distance between two coordenates: 
+* Open Google Navigator
+* Open Google Street View
 
 ```
 var distance = mapView.distance({
-	lat: 00,
-	lng: 000,
-	lat1: 000,
-	lng1:000
+	origin: {latitude: 0, longitude: 0},
+	destination: {latitude: 0, longitude: 0}
 })
 ```
 
@@ -175,12 +178,28 @@ var MapCallback = function(){
 
   MapCallback.onMarkerClickCallback = function(args){
     console.log("### onMarkerClickCallback")
-    this.onInfoWindowClickCallback.call(this, args, true)
   }
 
   MapCallback.onInfoWindowCloseCallback = function(args) {
-
   }
+  
+  MapCallback.onCameraPositionChange = function(args){
+      // args= { latitude: 0, longitude: 0, visibleRegion: { left: 0, top: 0, right: 0, bottom: 0, } }
+  }
+  
+  MapCallback.prototype.openGoogleNavigator = function(){
+	mapView.navigateWithGoogleNavigator({
+		latitude: 0,
+		longitude: 0      
+	})      
+  }
+  
+  MapCallback.prototype.openGoogleStreetView = function(){
+	mapView.openGoogleStreetView({
+		latitude: 0,
+		longitude: 0      
+	})      
+  }  
 
   MapCallback.addMarker = function(){
 
