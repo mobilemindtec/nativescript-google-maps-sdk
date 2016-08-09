@@ -563,20 +563,33 @@ var MapView = (function (_super) {
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
 
-    var _lat  = isNaN(params.lat) ? radians(NSString.stringWithString(params.lat).doubleValue) : radians(params.lat)
-    var _lng  = isNaN(params.lng) ? radians(NSString.stringWithString(params.lng).doubleValue) : radians(params.lng)
-    var _lat2 = isNaN(params.lat2) ? radians(NSString.stringWithString(params.lat2).doubleValue) : radians(params.lat2)
-    var _lng2 = isNaN(params.lng2) ? radians(NSString.stringWithString(params.lng2).doubleValue) : radians(params.lng2)
+    var origin = params.origin
+    var destination = params.destination
 
-    _lat  = isNaN(_lat) ? 0 : _lat
-    _lng  = isNaN(_lng) ? 0 : _lng
-    _lat2  = isNaN(_lat2) ? 0 : _lat2
-    _lng2  = isNaN(_lng2) ? 0 : _lng2
+    var _lat  = radians(getCoordinate(origin.latitude)) 
+    var _lng  = radians(getCoordinate(origin.longitude))
+    var _lat2 = radians(getCoordinate(destination.latitude))
+    var _lng2 = radians(getCoordinate(destination.longitude))
 
 
     // calculate the distance
     var result = 6371.0 * acos(cos(_lat2) * cos(_lat) * cos(_lng - _lng2) + sin(_lat2) * sin(_lat))
     return result
+  }  
+
+  function getCoordinate(coordinate){
+
+    if(!coordinate)
+      return 0.0
+
+    if(typeof coordinate == 'number')
+      return coordinate  
+
+    if(isNaN(coordinate) && coordinate.length > 16)      
+      return NSString.stringWithString(coordinate.substring(0, 16)).doubleValue    
+    else
+      return NSString.stringWithString(coordinate).doubleValue
+
   }  
 
 

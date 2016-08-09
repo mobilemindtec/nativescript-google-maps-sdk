@@ -165,10 +165,18 @@ var MapView = (function (_super) {
             var camPos = self.gMap.getCameraPosition()
             self._zoom = camPos.zoom
 
+            var visibleRegion = self.gMap.getProjection().getVisibleRegion();
+
             if(self._onCameraPositionChangeCallback){
               self._onCameraPositionChangeCallback({
                 latitude: camPos.target.latitude,
-                longitude: camPos.target.longitude
+                longitude: camPos.target.longitude,
+                visibleRegion:  {
+                  left: visibleRegion.latLngBounds.southwest.longitude,
+                  top: visibleRegion.latLngBounds.northeast.latitude,
+                  right: visibleRegion.latLngBounds.northeast.longitude,
+                  bottom: visibleRegion.latLngBounds.southwest.latitude,
+                }
               })
             }
           }
@@ -369,10 +377,11 @@ var MapView = (function (_super) {
 
       navigationOriginMarker = self.addMarker(args.origin)
       
-      if(!self.hasMarkerLocation(args.destination))
+      if(!self.hasMarkerLocation(args.destination)){
         self.addMarker(args.destination)
-      else
-        console.log("## not add destination to route")      
+      }else{
+        console.log("## not add destination to route")
+      }
 
       if(args.origin && args.origin.latitude && args.origin.longitude){
         var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
@@ -412,11 +421,10 @@ var MapView = (function (_super) {
         params.doneFirstRote()
         return
       }
-      
-      if(params.doneFirstRote)
-        params.doneFirstRote()
     }
 
+    if(params.doneFirstRote)
+      params.doneFirstRote()
 
     var runMyLocation = function(){
       self.getMyLocationMarker(function(args){
@@ -660,13 +668,7 @@ var MapView = (function (_super) {
           try{
 
             var full_path = 'file://' + opts.iconPath
-            var bitmap = getImageLoader().loadImageSync(full_path)
-            
-            //console.log("####################")
-            //console.log("### full_path=" + full_path)
-            //console.log("### bitmap=" + bitmap)
-            //console.log("####################")            
-
+            var bitmap = getImageLoader().loadImageSync(full_path)            
             iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
             markerIconsCache[opts.iconPath] = iconToUse
 
@@ -759,6 +761,10 @@ var MapView = (function (_super) {
 
   MapView.prototype.clear = function(){
     this._gMap.clear()
+
+    MARKER_WINDOW_IMAGES = {}
+    openedMarker = undefined
+    //markerIconsCache = {}
 
     try{
       Runtime.getRuntime().gc()
@@ -1100,7 +1106,7 @@ var MapView = (function (_super) {
               var full_path = 'file://' + badge
               bitmap = getImageLoader().loadImageSync(full_path)
             }catch(error){
-              console.log("## render windows error: " + error)
+              console.log("## render window error: " + error)
             } 
 
             if(!bitmap){
@@ -1177,15 +1183,17 @@ var MapView = (function (_super) {
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
 
-    var _lat  = radians(getCoordinate(params.lat))
-    var _lng  = radians(getCoordinate(params.lng))
-    var _lat2 = radians(getCoordinate(params.lat2))
-    var _lng2 = radians(getCoordinate(params.lng2))
+    var _lat  = radians(getCoordinate(params.origin.latitude))
+    var _lng  = radians(getCoordinate(params.origin.longitude))
+    var _lat2 = radians(getCoordinate(params.destination.latitude))
+    var _lng2 = radians(getCoordinate(params.destination.longitude))
 
     // calculate the distance
     var result = 6371.0 * java.lang.Math.acos(java.lang.Math.cos(_lat2) * java.lang.Math.cos(_lat) * java.lang.Math.cos(_lng - _lng2) + java.lang.Math.sin(_lat2) * java.lang.Math.sin(_lat))
     return result
   }  
+
+
 
   function getCoordinate(coordinate){
 
@@ -1207,5 +1215,4 @@ var MapView = (function (_super) {
 })(common.MapView);
 
 exports.MapView = MapView;
-
 
