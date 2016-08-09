@@ -2,8 +2,9 @@
 
 Read Google Maps ApI Documentation at https://developers.google.com/maps/documentation/android-api/intro
 
-Atention!!!! Don't forget of add google-service.json at platforms/android app folder and update you android api, because gradle plugin
-and dependencies use local libs
+Atention!!!! Don't forget of add google-service.json at platforms/android app folder and update you android api, because gradle plugin and dependencies use local libs
+
+Create google-services.json at https://developers.google.com/mobile/add
 
 ## Android 
 
@@ -24,8 +25,6 @@ buildscript {
 ```
 
 ### Android configuration
-
-Create google-services.json https://developers.google.com/mobile/add
 
 Create a new entry at App_Resources/values/strings.xml with a api key value
 ```
