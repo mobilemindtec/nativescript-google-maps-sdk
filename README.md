@@ -25,6 +25,8 @@ buildscript {
 
 ### Android configuration
 
+Create google-services.json https://developers.google.com/mobile/add
+
 Create a new entry at App_Resources/values/strings.xml with a api key value
 ```
 <string name="nativescript_google_maps_api_key">your api key</string>
