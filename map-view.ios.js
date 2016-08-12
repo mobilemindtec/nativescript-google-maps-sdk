@@ -235,7 +235,8 @@ var MapView = (function (_super) {
       'phone': opts.phone || "",
       'email': opts.email || "",
       'openOnClick': opts.openOnClick,
-      'position': latLng
+      'position': latLng,
+      'marker': openedMarker
     }
   
 
@@ -306,7 +307,7 @@ var MapView = (function (_super) {
 
       navigationOriginMarker = self.addMarker(args.origin)
 
-      if(!hasMarkerLocation(args.destination))
+      if(!this.hasMarkerLocation(args.destination))
         self.addMarker(args.destination)
       else
         console.log("## not add destination to route")
@@ -401,6 +402,15 @@ var MapView = (function (_super) {
     return false
 
   }  
+
+  MapView.prototype.getMarkerFromLocation = function(args){
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == args.latitude && it.longitude == args.longitude)          
+        return it.marker      
+    }    
+    return undefined
+  }
 
   MapView.prototype.navigateDisable = function(){
     _myLocationUpdateRouteCallback = null

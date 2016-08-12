@@ -565,6 +565,8 @@ var MapView = (function (_super) {
     }))
   }
 
+
+
   MapView.prototype.fitBounds = function(centerMarker){
     var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
     
@@ -726,6 +728,7 @@ var MapView = (function (_super) {
       'latLng': latLng,
       'latitude': opts.latitude,
       'longitude': opts.longitude,
+      'marker': openedMarker 
     }
   
 
@@ -750,9 +753,16 @@ var MapView = (function (_super) {
       if(it.latitude == args.latitude && it.longitude == args.longitude)
         return true
     }    
-
     return false
+  }
 
+  MapView.prototype.getMarkerFromLocation = function(args){
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == args.latitude && it.longitude == args.longitude)          
+        return it.marker      
+    }    
+    return undefined
   }
 
   MapView.prototype.selectMarker = function(marker){
