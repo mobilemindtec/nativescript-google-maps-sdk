@@ -725,7 +725,7 @@ var MapView = (function (_super) {
       'phone': opts.phone || "",
       'email': opts.email || "",
       'openOnClick': opts.openOnClick,
-      'latLng': latLng,
+      'position': latLng,
       'latitude': opts.latitude,
       'longitude': opts.longitude,
       'marker': openedMarker 
