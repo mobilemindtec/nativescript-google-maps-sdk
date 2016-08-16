@@ -319,7 +319,7 @@ var MapView = (function (_super) {
       if(args.origin && args.origin.latitude && args.origin.longitude){
         var bounds = GMSCoordinateBounds.alloc().init()        
         bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(origin.latitude, origin.longitude))
-        bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(getCoordenates(destination.latitude), getCoordenates(destination.longitude))      
+        bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(getCoordenates(destination.latitude), getCoordenates(destination.longitude)))      
 
         var coordenates = routeTask.getCoordenates()      
         
@@ -396,7 +396,7 @@ var MapView = (function (_super) {
 
     for(var marker in MARKER_WINDOW_IMAGES){
       var it = MARKER_WINDOW_IMAGES[marker]
-      if(it.latitude == args.latitude && it.longitude == args.longitude)
+      if(it.latitude == getCoordinate(args.latitude) && it.longitude == getCoordinate(args.longitude))         
         return true
     }    
 
