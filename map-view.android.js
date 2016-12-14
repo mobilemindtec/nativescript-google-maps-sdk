@@ -570,8 +570,8 @@ var MapView = (function (_super) {
   MapView.prototype.fitBounds = function(centerMarker){
     var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
     
-    for (var marker in MARKER_WINDOW_IMAGES) {            
-        builder = builder.include(MARKER_WINDOW_IMAGES[marker].latLng);
+    for (var marker in MARKER_WINDOW_IMAGES) {             
+      builder = builder.include(MARKER_WINDOW_IMAGES[marker].position);
     }
 
     var bounds = builder.build();    
@@ -614,6 +614,7 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMarker = function(opts) {
       
+    
     //console.log("####################### MapView.prototype.addMarker start")
     //console.log(JSON.stringify(opts))
     //console.log("####################### MapView.prototype.addMarker end")
