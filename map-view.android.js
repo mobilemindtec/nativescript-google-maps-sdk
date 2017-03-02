@@ -683,7 +683,10 @@ var MapView = (function (_super) {
             //var iconGenerator = new com.google.maps.android.ui.IconGenerator(this._context)
 
             var options = new android.graphics.BitmapFactory.Options()
-            //options.inSampleSize = 3;
+            options.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(opts.iconPath, options);
+
+            options.inSampleSize = calculateInSampleSize(options, 100, 100);
             options.inDither = false;                     //Disable Dithering mode
             options.inPurgeable = true;                   //Tell to gc that whether it needs free memory, the Bitmap can be cleared
             options.inInputShareable = true;              //Which kind of reference will be used to recover the Bitmap data after being clear, when it will be used in the future
@@ -743,6 +746,13 @@ var MapView = (function (_super) {
       this.longitude = opts.longitude
       this.fitBounds(openedMarker)      
     }
+
+    try{
+      Runtime.getRuntime().gc()
+      System.gc()
+    }catch(e){
+      console.log("## addMarker")
+    }    
 
     return openedMarker
   };
@@ -1219,6 +1229,28 @@ var MapView = (function (_super) {
     else
       return java.lang.Double.parseDouble(coordinate)    
 
+  }
+
+  function calculateInSampleSize(options, reqWidth, reqHeight) {
+      // Raw height and width of image
+      var height = options.outHeight;
+      var width = options.outWidth;
+      var inSampleSize = 1;
+
+      if (height > reqHeight || width > reqWidth) {
+
+          var halfHeight = height / 2;
+          var halfWidth = width / 2;
+
+          // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+          // height and width larger than the requested height and width.
+          while ((halfHeight / inSampleSize) >= reqHeight
+                  && (halfWidth / inSampleSize) >= reqWidth) {
+              inSampleSize *= 2;
+          }
+      }
+
+      return inSampleSize;
   }
 
   return MapView;
