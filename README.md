@@ -150,10 +150,10 @@ exports.OnMapReady =  function(args) {
 
 ### Features
 
-* Add markers / custon icon pin
+* Add markers / custom icon pin
 * Trace route / navigate
 * Fit bounds
-* Custon window marker
+* Custom window marker
 * Events - marker click, marker drag, window marker click, map postion change
 * Get/add my location
 * Clear markers
