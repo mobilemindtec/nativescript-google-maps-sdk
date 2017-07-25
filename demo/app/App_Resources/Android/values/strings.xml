@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_activity_kimera">NS Maps SDK</string>
+    <string name="app_name">NS Maps SDK</string>
+
+    <string name="facebook_app_id">407610712932791</string>
+    
+    <string name="nativescript_google_maps_api_key">AIzaSyBBpRdU4Jw8G5zmJ49UAHfAzaQDYBHOLF8</string>
+</resources>
+

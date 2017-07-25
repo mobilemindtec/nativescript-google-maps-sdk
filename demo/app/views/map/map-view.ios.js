@@ -1,6 +1,11 @@
 var common = require("./map-view-common");
 var application = require('application')
 var route = require("./route");
+var colorModule = require("color");
+var Color = colorModule.Color;
+var platform = require('platform')
+var utils = require("utils/utils")
+
 require("utils/module-merge").merge(common, module.exports);
 
 var onlyInitialPosition = false
@@ -14,11 +19,14 @@ var _custonWindowMarkerCreator
 var mLocationManager
 var isNetworkEnabled
 var isProviderEnabled
-
-var markersWindowImages = {}
+var IMAGE_CACHE = {}
+var MARKER_WINDOW_IMAGES = {}
 var openedMarker
 var routeTask = new route.RouteTask();  
+var navigationOriginMarker
 
+var sharedApplication = utils.ios.getter(UIApplication, UIApplication.sharedApplication)
+var mainScreen = utils.ios.getter(UIScreen, UIScreen.mainScreen)
 
 var MapView = (function (_super) {
   global.__extends(MapView, _super);
@@ -35,7 +43,10 @@ var MapView = (function (_super) {
 
     var self = this
     _onMarkerClickListener = function(marker){
-      self.updateCameraToMarker(marker)
+      console.log("## this.zoom=" + self.zoom)
+      console.log("## marker.position=" + marker.position)
+      var update = GMSCameraUpdate.setTargetZoom(marker.position, self.zoom);
+      self._ios.animateWithCameraUpdate(update);        
     }
 
     console.log("## application.resumeEvent=" + application.resumeEvent)
@@ -43,7 +54,7 @@ var MapView = (function (_super) {
       console.log("## onresume")
 
       if(self.locationManager){
-        self.locationManager.stopMonitoringSignificantLocationChanges();
+        //self.locationManager.startMonitoringSignificantLocationChanges();
         self.locationManager.startUpdatingLocation();
       }
 
@@ -54,7 +65,7 @@ var MapView = (function (_super) {
 
       if(self.locationManager){
         self.locationManager.stopUpdatingLocation();
-        self.locationManager.startMonitoringSignificantLocationChanges();
+        //self.locationManager.stopMonitoringSignificantLocationChanges();
       }
 
     })
@@ -80,6 +91,17 @@ var MapView = (function (_super) {
     configurable: true
   });
 
+  Object.defineProperty(MapView.prototype, "zoon", {
+    get: function () {
+      return this._zoom;
+    },
+    set: function(value){
+      this._zoom = value
+    },
+    enumerable: true,
+    configurable: true
+  });
+
   MapView.prototype.updateCamera = function() {
     if(!this.ios) return;
     var cameraUpdate = GMSCameraUpdate.setCamera(this._createCameraPosition());
@@ -87,15 +109,11 @@ var MapView = (function (_super) {
   };
 
   MapView.prototype.updateCameraToMarker = function(marker){   
-
-    //console.log("## updateCameraToMarker " + this.gMap)
-
-    var self = this
     var position = marker.position
-
-
-    //this._ios.camera = GMSCameraPosition.cameraWithTarget(position, zoom: 14)
-    this._ios.animateToLocation(position)
+     //var camPosition = GMSCameraPosition.cameraWithTargetZoom(position, 14)
+    var center = GMSCameraUpdate.setTargetZoom(position, this._zoom);
+    //this._ios.moveCamera(center)
+    this._ios.animateWithCameraUpdate(center)
   }  
 
   MapView.prototype._createCameraPosition = function() {
@@ -115,31 +133,29 @@ var MapView = (function (_super) {
       uiSettings.scrollGestures = true;      
       uiSettings.rotateGestures = true;
       uiSettings.compassButton = true;
-      uiSettings.indoorPicker = true;
+      uiSettings.indoorPicker = true;      
+      //uiSettings.myLocationButton = true;            
   };
 
   MapView.prototype.fitBounds = function(centerMarker){
 
     var bounds = GMSCoordinateBounds.alloc().init()
 
-    if(centerMarker)
-      bounds = GMSCoordinateBounds.alloc().initWithCoordinateCoordinate(centerMarker.position, centerMarker.position);
 
-    for(var marker in markersWindowImages){  
-
-      console.log("## marker=" + marker)
-      console.log("## marker=" + markersWindowImages[marker].position)
-
-      var position = markersWindowImages[marker].position
-
-      bounds = bounds.includingCoordinate(position)
-      
+    for(var marker in MARKER_WINDOW_IMAGES){  
+      var position = MARKER_WINDOW_IMAGES[marker].position
+      bounds = bounds.includingCoordinate(position)      
     }
 
     var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)
-    //this._ios.animateWithCameraUpdate(update);
-    this._ios.moveCamera(update);
-    this._ios.animateToViewingAngle(50);
+
+    if(centerMarker){
+      var center = GMSCameraUpdate.setTargetZoom(centerMarker.position, this._zoom);
+      this._ios.moveCamera(center)
+      this._ios.animateWithCameraUpdate(update);  
+    }else{
+      this._ios.animateWithCameraUpdate(update);  
+    }    
   }
 
   MapView.prototype.addMarker = function(opts) {
@@ -156,50 +172,65 @@ var MapView = (function (_super) {
     if(this.draggable == undefined || this.draggable == null)
       this.draggable = false
 
-    if(opts.latitude && opts.longitude){
-      this.latitude = undefined
-      this.longitude = undefined
-      
-      this.latitude = opts.latitude
-      this.longitude = opts.longitude
+    if(opts.latitude){
+      if(isNaN(opts.latitude) && opts.latitude.length > 16)
+        opts.latitude = Number(opts.latitude.substring(0, 16))
+      else
+        opts.latitude = Number(opts.latitude);
+    }
+
+    if(opts.longitude){
+      if(isNaN(opts.longitude) && opts.longitude.length > 16)
+        opts.longitude = Number(opts.longitude.substring(0, 16))
+      else
+        opts.longitude = Number(opts.longitude);
     }    
 
-    if(opts.title)
-      this.title = opts.title
+    if(!opts.title)
+      opts.title = ""
 
-    if(opts.snippet)
-      this.snippet = opts.snippet
-
-    if(!this.snippet || this.snippet === 0)
-      this.snippet = ""
-
-    if(!this.title || this.title === 0)
-      this.title = ""
+    if(!opts.snippet)
+      opts.snippet = ""
 
     var iconToUse = null
 
-    if(!opts.iconPath){
-      console.log("## use default icon")
+    if(opts.iosPinColor){
+      iconToUse = GMSMarker.markerImageWithColor(new Color(opts.iosPinColor).ios);
+    }else if(!opts.iconPath){
       iconToUse = GMSMarker.markerImageWithColor(UIColor.blueColor());
     }else{
-      if(opts.iconPath.indexOf('res://') > -1){      
-        var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
-        console.log("#### resName=" + resName)
-        iconToUse  = UIImage.imageNamed(resName)
+
+      if(IMAGE_CACHE[opts.iconPath]){
+        iconToUse = IMAGE_CACHE[opts.iconPath]
       }else{
-        iconToUse  = UIImage.imageWithContentsOfFile(args.iconPath);
+        if(opts.iconPath.indexOf('res://') > -1){      
+          var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
+          iconToUse  = UIImage.imageNamed(resName)
+        }else{
+          var imageData = NSData.dataWithContentsOfFile(opts.iconPath)
+          iconToUse  = UIImage.imageWithDataScale(imageData, mainScreen.scale)
+        }
       }
     }
 
     if(opts.clear)
       this.clear()
 
-    var latLng = CLLocationCoordinate2DMake(this.latitude, this.longitude)//.takeRetainedValue();
+    var latLng = CLLocationCoordinate2DMake(opts.latitude, opts.longitude)//.takeRetainedValue();
     openedMarker = GMSMarker.alloc().init()
     openedMarker.position = latLng;    
-    openedMarker.title = this.title;
-    openedMarker.snippet = this.snippet;    
-    openedMarker.draggable = this.draggable;
+    openedMarker.title = opts.title;
+    openedMarker.snippet = opts.snippet;    
+    
+
+    if (typeof this.draggable === 'boolean')
+      openedMarker.draggable = this.draggable
+    else if (typeof this.draggable === 'string')
+      openedMarker.draggable = this.draggable == 'true'
+    else 
+      openedMarker.draggable = false
+
+
     openedMarker.icon  = iconToUse;
 
     openedMarker.tracksInfoWindowChanges = true    
@@ -212,41 +243,56 @@ var MapView = (function (_super) {
       opts.openOnClick = true
 
     
-    markersWindowImages[openedMarker] = {
+    MARKER_WINDOW_IMAGES[openedMarker] = {
       'markerKey': opts.markerKey,
       'windowImgPath': opts.windowImgPath,
       'phone': opts.phone || "",
       'email': opts.email || "",
       'openOnClick': opts.openOnClick,
-      'position': latLng
+      'position': latLng,
+      'latitude': opts.latitude,
+      'longitude': opts.longitude,      
+      'marker': openedMarker
     }
   
 
     if(opts.showWindow){
-      openedMarker.showInfoWindow()
+      this.showWindow()
     }   
 
     if(opts.updateCamera){
-      console.log("## opts.updateCamera=" + opts.updateCamera)
-      this.updateCamera()
+      this.latitude = undefined
+      this.longitude = undefined
+      this.latitude = opts.latitude
+      this.longitude = opts.longitude
+      this.fitBounds(openedMarker)      
     }
+  
 
     return openedMarker
   };
 
+  MapView.prototype.selectMarker = function(marker){
+    openedMarker = marker
+  }
+
   MapView.prototype.clear = function(){
     this._ios.clear();
 
-    for(marker in markersWindowImages)
+    for(marker in MARKER_WINDOW_IMAGES)
       marker.map = null;
 
-    markersWindowImages = {}
+    MARKER_WINDOW_IMAGES = {}
   }
 
   MapView.prototype.closeMarker = function(){
     if(openedMarker){
       this._ios.selectedMarker =null
     }
+  }
+
+  MapView.prototype.removeMarker = function(marker){
+    marker.map = null
   }
 
   MapView.prototype.hideWindow = function(){
@@ -263,43 +309,66 @@ var MapView = (function (_super) {
 
   MapView.prototype.navigateEnable = function(params){
 
-         
-
     var self = this
     var origin = params.origin
     var destination = params.destination
+    var firstRouteIsDone = false
 
-    var overlayAction = function(args){      
-      self.addMarker(args.origin)
-      self.addMarker(args.destination)
+    var overlayAction = function(args){     
+
+      if(navigationOriginMarker){
+        navigationOriginMarker.map = undefined
+        navigationOriginMarker = undefined
+      }
+
+      navigationOriginMarker = self.addMarker(args.origin)
+
+      if(!this.hasMarkerLocation(args.destination))
+        self.addMarker(args.destination)
+      else
+        console.log("## not add destination to route")
+    
+      if(args.origin && args.origin.latitude && args.origin.longitude){
+        var bounds = GMSCoordinateBounds.alloc().init()        
+        bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(origin.latitude, origin.longitude))
+        bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(getCoordenates(destination.latitude), getCoordenates(destination.longitude)))      
+
+        var coordenates = routeTask.getCoordenates()      
+        
+        for(var i in coordenates)
+          bounds = bounds.includingCoordinate(coordenates[i])
+
+        var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)      
+        this._ios.moveCamera(update);
+        this._ios.animateToViewingAngle(50);
+        
+      }
     }
 
-    if(origin && origin.latitude && origin.longitude){
-
-      overlayAction({
-        origin: origin,
-        destination: destination
+    if(origin && origin.latitude && origin.longitude){          
+      routeTask.execute({
+        origin: origin, 
+        destination: destination, 
+        mapView: this._ios,
+        doneCallback: function(attrs){
+          overlayAction({
+            origin: attrs.origin,
+            destination: attrs.destination
+          })       
+        }
       })
 
-      var bounds = GMSCoordinateBounds.alloc().init()
-      
-      bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(origin.latitude, origin.longitude))
-      bounds = bounds.includingCoordinate(CLLocationCoordinate2DMake(parseFloat(destination.latitude), parseFloat(destination.longitude)))      
-      
-      var update = GMSCameraUpdate.fitBoundsWithPadding(bounds, 100.0)
-      //this._ios.animateWithCameraUpdate(update);
-      this._ios.moveCamera(update);
-      this._ios.animateToViewingAngle(50);
-      
+      if(params.notUpdateRoute){
+        params.doneFirstRote()
+        return
+      } 
 
-      console.log("routeTask.execute")
-      routeTask.execute({origin: origin, destination: destination, mapView: this._ios})
+      if(params.doneFirstRote){
+        firstRouteIsDone = true
+        params.doneFirstRote()
+      }
     }
 
-    if(params.doneFirstRote)
-      params.doneFirstRote()
-
-    console.log("## goto enableMyLocationListener")
     onlyInitialPosition = false
     this.enableMyLocationUpdateListener({
       minTime: 60000,
@@ -313,16 +382,47 @@ var MapView = (function (_super) {
         origin.longitude = args.longitude
 
 
-        overlayAction({
-          origin: origin,
-          destination: destination
+        
+        routeTask.execute({
+          origin: origin, 
+          destination: destination, 
+          mapView: self._ios,
+          doneCallback: function(arrts){
+            overlayAction({
+              origin: attrs.origin,
+              destination: attrs.destination
+            })       
+          }
         })
 
+        if(params.doneFirstRote && !firstRouteIsDone){
+          firstRouteIsDone = true
+          params.doneFirstRote()
+        }
 
-        
-        routeTask.execute({origin: origin, destination: destination, mapView: self._ios})
       }
     })   
+  }
+
+  MapView.prototype.hasMarkerLocation = function(args){
+
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == getCoordinate(args.latitude) && it.longitude == getCoordinate(args.longitude))         
+        return true
+    }    
+
+    return false
+
+  }  
+
+  MapView.prototype.getMarkerFromLocation = function(args){
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == getCoordinate(args.latitude) && it.longitude == getCoordinate(args.longitude))         
+        return it.marker            
+    }    
+    return undefined
   }
 
   MapView.prototype.navigateDisable = function(){
@@ -346,13 +446,10 @@ var MapView = (function (_super) {
 
           var location = locations.lastObject
 
-
             var args = {
               latitude: location.coordinate.latitude, 
               longitude: location.coordinate.longitude,
             }
-
-            console.log("## locationManagerDidUpdateLocations args=" + JSON.stringify(args))
 
             if(_myLocationUpdateRouteCallback)
               _myLocationUpdateRouteCallback(args)
@@ -386,7 +483,7 @@ var MapView = (function (_super) {
     if(!this.locationManagerDelegate)
       this.locationManagerDelegate = new MyLocationDelegate();
 
-    if(!this.locationManager){
+    if(!this.locationManager || !this.locationManager.delegate){
       this.locationManager = CLLocationManager.alloc().init();
       this.locationManager.delegate = this.locationManagerDelegate;
     }
@@ -406,12 +503,12 @@ var MapView = (function (_super) {
       console.log("## startUpdatingLocation")
     }else{
 
-      this.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
 
       // Only report to location manager if the user has traveled 1000 meters
-      this.locationManager.distanceFilter = params.minDistance;      
-      this.locationManager.activityType = CLActivityTypeAutomotiveNavigation;      
-      this.locationManager.startMonitoringSignificantLocationChanges()
+      this.locationManager.activityType = CLActivityTypeOtherNavigation //CLActivityTypeAutomotiveNavigation; 
+      this.locationManager.requestAlwaysAuthorization()    
+      //this.locationManager.startMonitoringSignificantLocationChanges()
+      this.locationManager.startUpdatingLocation();
       console.log("## startMonitoringSignificantLocationChanges")
     }
 
@@ -430,7 +527,10 @@ var MapView = (function (_super) {
       myLocationUpdateCallback:  function(location){
         args.latitude = location.latitude
         args.longitude = location.longitude
-        self.addMarker(args)
+        args.marker = self.addMarker(args)
+
+          if(args.doneCallback)
+            args.doneCallback(args)        
       }
     })
   };
@@ -447,34 +547,69 @@ var MapView = (function (_super) {
 
   MapView.prototype.disableMyLocationUpdateListener = function(){
 
-    this.locationManager.stopMonitoringSignificantLocationChanges()
-    this.locationManager.stopUpdatingLocation()
-    this.locationManager = null
+    //this.locationManager.stopMonitoringSignificantLocationChanges()
+    if(this.locationManager){
+      this.locationManager.stopUpdatingLocation()
+      this.locationManager = undefined
+    }
 
     onlyInitialPosition = false
   }
 
+  MapView.prototype.navigateWithGoogleNavigator = function(args){    
+    if (sharedApplication.canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
+      var url = "comgooglemaps://?saddr=&daddr=" + args.latitude + "," + args.longitude
+      sharedApplication.openURL(NSURL.URLWithString(url));
+    } else {
+      var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
+      sharedApplication.openURL(NSURL.URLWithString(iTunesLink));      
+    }    
+  }
+
+  MapView.prototype.openGoogleStreetView = function(args){    
+    if (sharedApplication.canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
+      var url = "comgooglemaps://?center=" + args.latitude + "," + args.longitude + "&mapmode=streetview"
+      sharedApplication.openURL(NSURL.URLWithString(url));
+    } else {
+      var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
+      sharedApplication.openURL(NSURL.URLWithString(iTunesLink));      
+    }    
+  }  
+
   function radians(degrees){
-      return degrees * M_PI / 180.0
+      return degrees * 3.14 / 180.0
   }
 
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
 
-    var _lat  = isNaN(params.lat) ? radians(NSString.stringWithString(params.lat).doubleValue) : radians(params.lat)
-    var _lng  = isNaN(params.lng) ? radians(NSString.stringWithString(params.lng).doubleValue) : radians(params.lng)
-    var _lat2 = isNaN(params.lat2) ? radians(NSString.stringWithString(params.lat2).doubleValue) : radians(params.lat2)
-    var _lng2 = isNaN(params.lng2) ? radians(NSString.stringWithString(params.lng2).doubleValue) : radians(params.lng2)
+    var origin = params.origin
+    var destination = params.destination
 
-    _lat  = isNaN(_lat) ? 0 : _lat
-    _lng  = isNaN(_lng) ? 0 : _lng
-    _lat2  = isNaN(_lat2) ? 0 : _lat2
-    _lng2  = isNaN(_lng2) ? 0 : _lng2
+    var _lat  = radians(getCoordinate(origin.latitude)) 
+    var _lng  = radians(getCoordinate(origin.longitude))
+    var _lat2 = radians(getCoordinate(destination.latitude))
+    var _lng2 = radians(getCoordinate(destination.longitude))
 
 
     // calculate the distance
     var result = 6371.0 * acos(cos(_lat2) * cos(_lat) * cos(_lng - _lng2) + sin(_lat2) * sin(_lat))
     return result
+  }  
+
+  function getCoordinate(coordinate){
+
+    if(!coordinate)
+      return 0.0
+
+    if(typeof coordinate == 'number')
+      return coordinate  
+
+    if(isNaN(coordinate) && coordinate.length > 16)      
+      return NSString.stringWithString(coordinate.substring(0, 16)).doubleValue    
+    else
+      return NSString.stringWithString(coordinate).doubleValue
+
   }  
 
 
@@ -492,12 +627,30 @@ var MapView = (function (_super) {
         }
 
         MyMapViewDelegate.prototype.mapViewDidChangeCameraPosition = function(mapView, position){
-          self.zoom = position.zoom
+          self._zoom = position.zoom
           _cameraPosition = position.target // CLLocationCoordinate2D
         }
 
         MyMapViewDelegate.prototype.mapViewIdleAtCameraPosition = function(mapView, position){
 
+          self._zoom = position.zoom
+
+          if(self._ios){
+            var visibleRegion = self._ios.projection.visibleRegion();
+            
+            if(self._onCameraPositionChangeCallback){
+              self._onCameraPositionChangeCallback({
+                latitude: position.target.latitude,
+                longitude: position.target.longitude,
+                visibleRegion:  {
+                  left: visibleRegion.nearLeft.longitude,
+                  top: visibleRegion.nearRight.latitude,
+                  right: visibleRegion.farLeft.longitude,
+                  bottom: visibleRegion.farRight.latitude,
+                }              
+              })
+            }             
+          } 
         }
 
         MyMapViewDelegate.prototype.mapViewDidTapAtCoordinate = function(mapView, coordinate){
@@ -516,7 +669,7 @@ var MapView = (function (_super) {
           if(self._onMarkerClickCallback){
             self._onMarkerClickCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
           
@@ -527,19 +680,19 @@ var MapView = (function (_super) {
         }
 
         MyMapViewDelegate.prototype.mapViewDidTapInfoWindowOfMarker = function(mapView, marker){
-          if(self._onInfoWindowClickCallback && markersWindowImages[marker].openOnClick){
+          if(self._onInfoWindowClickCallback && MARKER_WINDOW_IMAGES[marker].openOnClick){
             self._onInfoWindowClickCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
         }
 
         MyMapViewDelegate.prototype.mapViewDidLongPressInfoWindowOfMarker = function(mapView, marker){
-          if(self._onInfoWindowLongCallback && markersWindowImages[marker].openOnClick){
+          if(self._onInfoWindowLongCallback && MARKER_WINDOW_IMAGES[marker].openOnClick){
             self._onInfoWindowLongCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
         }
@@ -552,6 +705,7 @@ var MapView = (function (_super) {
         MyMapViewDelegate.prototype.mapViewMarkerInfoWindow = function(mapView, marker){
           
           if(self.useCustonWindow && self.useCustonWindow == true){
+            console.log("## use custon window")
             return self.defaultWindowMarkerCreator(marker)
           }
 
@@ -562,12 +716,10 @@ var MapView = (function (_super) {
         MyMapViewDelegate.prototype.mapViewMarkerInfoContents = function(mapView, marker){
           if(self.useCustonWindow && self.useCustonWindow == true){
            
-            if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
-              badge = markersWindowImages[marker].windowImgPath
+            if(MARKER_WINDOW_IMAGES[marker] && MARKER_WINDOW_IMAGES[marker].windowImgPath)
+              badge = MARKER_WINDOW_IMAGES[marker].windowImgPath
             else
               console.log('## not has image to custon window')
-
-
           }
 
           return null
@@ -577,7 +729,7 @@ var MapView = (function (_super) {
           if(self._onInfoWindowCloseCallback){
             self._onInfoWindowCloseCallback({
               'marker': marker,
-              'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+              'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
             })
           }
         }
@@ -587,9 +739,9 @@ var MapView = (function (_super) {
           if(self.draggable){
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart){
               self._onMarkerDragCallback.onMarkerDragStart({
-                      'marker': marker,
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-                    })
+                'marker': marker,
+                'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
+              })
             }
           }
         }
@@ -599,14 +751,13 @@ var MapView = (function (_super) {
           if(self.draggable){
             var position = marker.position
             self.latitude = position.latitude
-            self.longitude = position.longitud
-            console.log("############## onMarkerDragEnd")
+            self.longitude = position.longitude
 
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd){
               self._onMarkerDragCallback.onMarkerDragEnd({
-                      'marker': marker,
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-                    })
+                'marker': marker,
+                'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
+              })
             }
           }
         }
@@ -615,9 +766,9 @@ var MapView = (function (_super) {
           if(self.draggable){
             if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag){
               self._onMarkerDragCallback.onMarkerDrag({
-                      'marker': marker,
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-                    })
+                'marker': marker,
+                'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
+              })
             }
           }
         }
@@ -652,7 +803,7 @@ var MapView = (function (_super) {
     if(this._custonWindowMarkerCreator)
       return this._custonWindowMarkerCreator({
         'marker': marker,
-        'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
+        'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
       })
 
     var anchor = marker.position            
@@ -660,8 +811,8 @@ var MapView = (function (_super) {
 
     var badge;
 
-    if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
-      badge = markersWindowImages[marker].windowImgPath
+    if(MARKER_WINDOW_IMAGES[marker] && MARKER_WINDOW_IMAGES[marker].windowImgPath)
+      badge = MARKER_WINDOW_IMAGES[marker].windowImgPath
     else
       console.log('## not has image to custon window')
 
@@ -685,24 +836,24 @@ var MapView = (function (_super) {
     snippet.text = marker.snippet
     outerView.addSubview(snippet)
 
-    if(markersWindowImages[marker].phone){
+    if(MARKER_WINDOW_IMAGES[marker].phone){
       var phone = UILabel.alloc().initWithFrame(CGRectMake(10, 45, 170, 10))
       phone.font = UIFont.systemFontOfSize(12)
-      phone.text = markersWindowImages[marker].phone
+      phone.text = MARKER_WINDOW_IMAGES[marker].phone
       outerView.addSubview(phone)
     }
 
-    if(markersWindowImages[marker].email){
+    if(MARKER_WINDOW_IMAGES[marker].email){
       var email = UILabel.alloc().initWithFrame(CGRectMake(10, 60, 170, 10))
       email.font = UIFont.systemFontOfSize(12)
-      email.text = markersWindowImages[marker].email
+      email.text = MARKER_WINDOW_IMAGES[marker].email
       outerView.addSubview(email)
     }
     
     var btn = UIImageView.alloc().initWithImage(UIImage.imageNamed("btn_marker_open"))
     btn.frame = CGRectMake(10, 80, 80, 30)
     btn.contentMode = UIViewContentModeScaleAspectFit
-    outerView.addSubview(btn)
+    outerView.addSubview(btn) 
 
     if(badge){              
       var image 
@@ -717,14 +868,13 @@ var MapView = (function (_super) {
       console.log("## image=" + image)
 
       var imageView = UIImageView.alloc().initWithImage(image)
-      imageView.frame = CGRectMake(170, 10, 100, 80)
+      imageView.frame = CGRectMake(170, 10, 90, 80)
       imageView.contentMode = UIViewContentModeScaleAspectFit
       outerView.addSubview(imageView)
     }
 
     return outerView
   }  
-
 
   return MapView;
 })(common.MapView);

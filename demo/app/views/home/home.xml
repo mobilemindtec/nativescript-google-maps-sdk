@@ -1,5 +1,5 @@
 <Page loaded="loaded" xmlns="http://www.nativescript.org/tns.xsd" 
-  xmlns:maps="nativescript-google-maps-sdk">
+  xmlns:maps="~/views/map">
 
   <Page.actionBar>
     <ActionBar title="Estabelecimento"></ActionBar>

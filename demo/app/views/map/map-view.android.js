@@ -16,9 +16,13 @@ var mLocationManager
 var isNetworkEnabled
 var isProviderEnabled
 
-var markersWindowImages = {}
+var MARKER_WINDOW_IMAGES = {}
 var openedMarker
 var routeTask = new route.RouteTask();   
+var markerIconsCache = {}
+var navigationOriginMarker
+var imageLoader
+var myLocationListenerList = []
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
@@ -28,38 +32,31 @@ var MapView = (function (_super) {
 
   var self = this
 
+  var createMarkerEventData = function(marker){
+    return {
+      'marker': marker,
+      'markerKey': MARKER_WINDOW_IMAGES[marker] ? MARKER_WINDOW_IMAGES[marker].markerKey : null
+    }
+  }
+
   var _onMarkerDragListener = new com.google.android.gms.maps.GoogleMap.OnMarkerDragListener({
     
     onMarkerDrag: function(marker){
-      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag){
-        self._onMarkerDragCallback.onMarkerDrag({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
-      }
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDrag)
+        self._onMarkerDragCallback.onMarkerDrag(createMarkerEventData(marker))      
     },
 
     onMarkerDragEnd: function(marker){
       var position = marker.getPosition()
-      this.latitude = position.latitude
-      this.longitude = position.longitude
-      console.log("############## onMarkerDragEnd")
-
-      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd){
-        self._onMarkerDragCallback.onMarkerDragEnd({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
-      }
+      self.latitude = position.latitude
+      self.longitude = position.longitude
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragEnd)
+        self._onMarkerDragCallback.onMarkerDragEnd(createMarkerEventData(marker))      
     },
 
     onMarkerDragStart: function(marker){
-      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart){
-        self._onMarkerDragCallback.onMarkerDragStart({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
-      }
+      if(self._onMarkerDragCallback && self._onMarkerDragCallback.onMarkerDragStart)
+        self._onMarkerDragCallback.onMarkerDragStart(createMarkerEventData(marker))      
     },
 
   })
@@ -67,11 +64,20 @@ var MapView = (function (_super) {
   var _onCameraChangeListener = new com.google.android.gms.maps.GoogleMap.OnCameraChangeListener({
     
      onCameraChange: function(position){      
-      this.zoom = position.zoom
+      //console.log("OnCameraChangeListener position.zoom=" + position.zoom)
+      self._zoom = position.zoom
       _cameraPosition = position.target
     }
 
   })
+
+  Object.defineProperty(MapView.prototype, "_nativeView", {
+      get: function () {
+          return this._android;
+      },
+      enumerable: true,
+      configurable: true
+  });
 
   Object.defineProperty(MapView.prototype, "android", {
     get: function () {
@@ -84,6 +90,17 @@ var MapView = (function (_super) {
   Object.defineProperty(MapView.prototype, "gMap", {
     get: function () {
       return this._gMap;
+    },
+    enumerable: true,
+    configurable: true
+  });
+
+  Object.defineProperty(MapView.prototype, "zoom", {
+    get: function () {
+      return this._zoom;
+    },
+    set: function(value){
+      this._zoom = value
     },
     enumerable: true,
     configurable: true
@@ -128,8 +145,10 @@ var MapView = (function (_super) {
     application.android.off(application.AndroidApplication.activityDestroyedEvent, this.onActivityDestroyed, this);
   }
 
-  MapView.prototype._createUI = function () {
+  MapView.prototype.createNativeView = function () {
+    
     var that = new WeakRef(this);
+    var self = this
 
     var cameraPosition = this._createCameraPosition();
 
@@ -140,110 +159,143 @@ var MapView = (function (_super) {
 
     if(cameraPosition) options = options.camera(cameraPosition);
 
-    this._android = new com.google.android.gms.maps.MapView(this._context, options);
+    var MapViewWrapper = com.google.android.gms.maps.MapView.extend({
 
+      onInterceptTouchEvent: function(ev){
 
+        if(ev.getAction() == android.view.MotionEvent.ACTION_DOWN)
+          self._mapIsTouched = true
+        else if(ev.getAction() ==   android.view.MotionEvent.ACTION_UP){
+          self._mapIsTouched = false        
+        
+          if(self.gMap){
+
+            var camPos = self.gMap.getCameraPosition()
+            self._zoom = camPos.zoom
+
+            var visibleRegion = self.gMap.getProjection().getVisibleRegion();
+
+            if(self._onCameraPositionChangeCallback){
+              self._onCameraPositionChangeCallback({
+                latitude: camPos.target.latitude,
+                longitude: camPos.target.longitude,
+                visibleRegion:  {
+                  left: visibleRegion.latLngBounds.southwest.longitude,
+                  top: visibleRegion.latLngBounds.northeast.latitude,
+                  right: visibleRegion.latLngBounds.northeast.longitude,
+                  bottom: visibleRegion.latLngBounds.southwest.latitude,
+                }
+              })
+            }
+          }
+        }        
+
+        return this.super.onInterceptTouchEvent(ev);
+      }
+
+    })  
+
+    this._android = new MapViewWrapper(this._context, options);
     this._android.onCreate(null);
     this._android.onResume();
     var self = this
 
+    var displayMetrics = this._context.getResources().getDisplayMetrics()
+    var COMPLEX_UNIT_DIP = android.util.TypedValue.COMPLEX_UNIT_DIP
     /*
-    var zoomParams = new android.widget.RelativeLayout.LayoutParams(
-            android.widget.RelativeLayout.LayoutParams.FILL_PARENT, android.widget.RelativeLayout.LayoutParams.FILL_PARENT);
-    var controlls = this._android.findViewById(0x1);
-  
-    controlls.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.LEFT);
-
-
-    zoomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM);
-    zoomParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_LEFT);
-
-    var margin = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, 10,
-            this._context.getResources().getDisplayMetrics());
-    zoomParams.setMargins(margin, margin, margin, margin);
-    controlls.setLayoutParams(zoomParams);
-
-
-    var controll2 = this._android.findViewById(0x4);
-    console.log("#################### >>> " + controll2)
+      @LayoutRes final int ZOOM_CONTROL_ID = 0x1;
+      @LayoutRes final int MY_LOCATION_CONTROL_ID = 0x2;
+      @LayoutRes final int NAVIGATION_CONTROL_ID = 0x4;      
     */
-    
-    if(this.zoonMargin){
-      var zoomControls = this._android.findViewById(0x1);        
+
+    if(this.zoonMargin || this.zoomPosition){
+      
+
+      var zoomControls = this._android.findViewById(0x1);     
       var params = zoomControls.getLayoutParams();
-      var margin = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, this.zoonMargin,
-              this._context.getResources().getDisplayMetrics());
-      params.setMargins(margin, margin, margin, margin);
-      zoomControls.setLayoutParams(params)      
+
+      if(this.zoonMargin)   {
+        var margins = android.util.TypedValue.applyDimension(COMPLEX_UNIT_DIP, this.zoonMargin, displayMetrics);
+        params.setMargins(margins, margins, margins, margins);
+      }
+
+      if(this.zoomPosition == 'left'){
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_BOTTOM);
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_LEFT);      
+      }
+
+      zoomControls.setLayoutParams(params)          
+    }    
+ 
+    if(this.navigationControlMargin || this.navigationControlPosition){
+      var navigationButtons = this._android.findViewById(0x4);        
+      var params = navigationButtons.getLayoutParams();
+
+      if(this.navigationControlMargin){
+        var margins = android.util.TypedValue.applyDimension(COMPLEX_UNIT_DIP, this.navigationControlMargin, displayMetrics);
+        params.setMargins(margins, margins, margins, margins);
+      }
+
+      if(this.navigationControlPosition == 'left'){
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_BOTTOM);
+        params.addRule(android.widget.RelativeLayout .ALIGN_PARENT_LEFT);      
+      }
+
+      navigationButtons.setLayoutParams(params)          
     }
-    
 
-
+     
     var mapReadyCallback = new com.google.android.gms.maps.OnMapReadyCallback({
       onMapReady: function (gMap) {
         var mView = that.get();
 
         mView._gMap = gMap;
-        if(mView._pendingCameraUpdate) {          
-          mView.updateCamera();
-        }
+        if(mView._pendingCameraUpdate)      
+          mView.updateCamera();        
 
         if(self.draggable)
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener)
 
 
-        if(self.useCustonWindow && self.useCustonWindow == true){
-          mView._gMap.setInfoWindowAdapter(createCustonWindowMarker());           
-        }
+        if(self.useCustonWindow && self.useCustonWindow == true)
+          mView._gMap.setInfoWindowAdapter(createCustonWindowMarker());                   
 
         mView._gMap.setOnInfoWindowClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener({
            onInfoWindowClick: function(marker){
-            if(self._onInfoWindowClickCallback && markersWindowImages[marker].openOnClick)
-              self._onInfoWindowClickCallback({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
+            if(self._onInfoWindowClickCallback && MARKER_WINDOW_IMAGES[marker].openOnClick)
+              self._onInfoWindowClickCallback(createMarkerEventData(marker))
            }
         }))
         
         mView._gMap.setOnInfoWindowCloseListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowCloseListener({
            onInfoWindowClose: function(marker){
             if(self._onInfoWindowCloseCallback) 
-              self._onInfoWindowCloseCallback({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
+              self._onInfoWindowCloseCallback(createMarkerEventData(marker))
            }
         }))
 
         mView._gMap.setOnInfoWindowLongClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowLongClickListener({
            onInfoWindowLongClick: function(marker){
-            if(self._onInfoWindowLongCallback && markersWindowImages[marker].openOnClick)
-              self._onInfoWindowLongCallback({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
+            if(self._onInfoWindowLongCallback && MARKER_WINDOW_IMAGES[marker].openOnClick)
+              self._onInfoWindowLongCallback(createMarkerEventData(marker))
            }
         }))
 
 
         mView._gMap.setOnMarkerClickListener(new com.google.android.gms.maps.GoogleMap.OnMarkerClickListener({
-           onMarkerClick: function(marker){
+          onMarkerClick: function(marker){
 
             if(_onMarkerClickListener)
               _onMarkerClickListener(marker)
 
             if(self._onMarkerClickCallback)
-              self._onMarkerClickCallback({
-                'marker': marker,
-                'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-              })
-            
+              self._onMarkerClickCallback(createMarkerEventData(marker))
+
             marker.showInfoWindow()
 
-            return true
+            return false
  
-           }
+          }
         }))
 
         mView._gMap.setOnMapClickListener(new com.google.android.gms.maps.GoogleMap.OnMapClickListener({
@@ -251,6 +303,11 @@ var MapView = (function (_super) {
             //self.createLooperAnimateCamera(point)
           }
         }))
+
+        
+        mView._gMap.setOnCameraChangeListener(_onCameraChangeListener);
+        
+        
         
         if(mView._gMap.draggable)
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener) 
@@ -265,12 +322,14 @@ var MapView = (function (_super) {
           self.updateCameraToMarker(marker)
         }
 
-        mView._emit(MapView.mapReadyEvent);
-        
+        mView._emit(MapView.mapReadyEvent);  
       }
     });
 
     this._android.getMapAsync(mapReadyCallback);
+
+    this.nativeView = this._android
+    return this.nativeView    
   };
 
 
@@ -315,70 +374,124 @@ var MapView = (function (_super) {
       this.loopAnimateCamera(updates)
   }
 
-  MapView.prototype.navigateEnable = function(params){
-
-         
-
+  MapView.prototype.navigateEnable = function(params){         
     var self = this
     var origin = params.origin
     var destination = params.destination
 
     var overlayAction = function(args){      
-      self.addMarker(args.origin)
-      self.addMarker(args.destination)
+
+      if(navigationOriginMarker){
+        navigationOriginMarker.remove()
+        navigationOriginMarker = undefined
+      }
+
+      navigationOriginMarker = self.addMarker(args.origin)
+      
+      if(!self.hasMarkerLocation(args.destination)){
+        self.addMarker(args.destination)
+      }else{
+        console.log("## not add destination to route")
+      }
+
+      if(args.origin && args.origin.latitude && args.origin.longitude){
+        var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
+        builder.include(new com.google.android.gms.maps.model.LatLng(getCoordinate(args.origin.latitude), getCoordinate(args.origin.longitude)))
+        builder.include(new com.google.android.gms.maps.model.LatLng(getCoordinate(args.destination.latitude), getCoordinate(args.destination.longitude)))
+
+        var coordenates = routeTask.getCoordenates()
+        console.log("## " + coordenates.length + "coordenates founds to route")
+        
+        for(var i in coordenates)
+          builder.include(coordenates[i])
+        
+        var bounds = builder.build();
+        var padding = 100
+        var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
+        self._gMap.moveCamera(camUpdate);
+        self._gMap.animateCamera(camUpdate)            
+      }
+
     }
 
     if(origin && origin.latitude && origin.longitude){
 
-      overlayAction({
-        origin: origin,
-        destination: destination
+      routeTask.execute({
+        origin: origin, 
+        destination: destination, 
+        mapView: this._gMap, 
+        doneCallback: function(attrs){                    
+          overlayAction({
+            origin: attrs.origin,
+            destination: attrs.destination
+          })       
+        }
       })
 
-      var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
-      builder.include(new com.google.android.gms.maps.model.LatLng(origin.latitude, origin.longitude))
-      builder.include(new com.google.android.gms.maps.model.LatLng(parseFloat(destination.latitude), parseFloat(destination.longitude)))
-      var bounds = builder.build();
-      var padding = 50
-      var camUpdate = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
-      /// move the camera
-      this._gMap.moveCamera(camUpdate);
-      //or animate the camera...
-      this._gMap.animateCamera(camUpdate)
-
-      routeTask.execute({origin: origin, destination: destination, mapView: this._gMap})
+      if(params.notUpdateRoute){
+        params.doneFirstRote()
+        return
+      }
     }
 
     if(params.doneFirstRote)
       params.doneFirstRote()
 
-
-    this.enableMyLocationUpdateListener({
-      minTime: 60000,
-      minDistance: 10,
-      myLocationRouteCallback: function(args){
-
-        console.log("### myLocationRouteCallback")
+    var runMyLocation = function(){
+      self.getMyLocationMarker(function(args){
 
         origin.latitude = args.latitude
         origin.longitude = args.longitude
-
-
-        overlayAction({
-          origin: origin,
-          destination: destination
+      
+        routeTask.execute({
+          origin: origin, 
+          destination: destination, 
+          mapView: self._gMap, 
+          doneCallback: function(){
+            overlayAction({
+              origin: attrs.origin,
+              destination: attrs.destination
+            })          
+          }
         })
 
+      })       
+    }
 
-        
-        routeTask.execute({origin: origin, destination: destination, mapView: self._gMap})
-      }
+    var mHandler = new android.os.Handler()
+    var first = true
+    var onRequestLocation = new java.lang.Runnable({                
+        run: function(){
+
+          if(!_myLocationUpdateCallback && !first)
+              return
+          
+          if(!params.notUpdateRoute)
+            mHandler.postDelayed(onRequestLocation, 1000*10);            
+          runMyLocation()
+          
+          first = false
+        }
     })   
+    onRequestLocation.run()      
+    
   }
 
-  MapView.prototype.navigateDisable = function(){
-    _myLocationUpdateCallback = null
+  MapView.prototype.navigateDisable = function(){    
+    
+    this.disableMyLocationUpdateListener()
+    
+    _myLocationUpdateCallback = null    
+    
     routeTask.remove()
+
+    if(navigationOriginMarker)
+      this.removeMarker(navigationOriginMarker)
+
+    // remove algum listener que ficou para tras
+    for(var i = 0; i < myLocationListenerList.length; i++)
+      if(mLocationManager)
+        mLocationManager.removeUpdates(myLocationListenerList[i])
   }
 
   MapView.prototype._createCameraPosition = function() {
@@ -435,28 +548,25 @@ var MapView = (function (_super) {
 
       var cameraUpdate = com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(cameraPosition);
       this.gMap.moveCamera(cameraUpdate);
-
-      //console.log('## updateCamera')
-
     }
   }
 
   MapView.prototype.updateCameraToMarker = function(marker){   
 
-    //console.log("## updateCameraToMarker " + this.gMap)
+    //console.log("## updateCameraToMarker this._zoom=" + this._zoom)
 
     var self = this
     var position = marker.getPosition()
-    var newLatLngZoom = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(position, 14)
+    var newLatLngZoom = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(position, this._zoom)
     this.gMap.animateCamera(newLatLngZoom, 1000, new com.google.android.gms.maps.GoogleMap.CancelableCallback({
 
       onFinish: function() {
         var projection = self.gMap.getProjection()
         var point = projection.toScreenLocation(position)
-        point.x -= 100
-        point.y -= 100
+        //point.x -= 100
+        //point.y -= 100
         var offsetPosition = projection.fromScreenLocation(point)
-        var newLatLng = com.google.android.gms.maps.CameraUpdateFactory.newLatLng(offsetPosition)
+        var newLatLng = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(offsetPosition, self._zoom)
         self.gMap.animateCamera(newLatLng, 300, null)
       },
 
@@ -466,22 +576,30 @@ var MapView = (function (_super) {
     }))
   }
 
+
+
   MapView.prototype.fitBounds = function(centerMarker){
     var builder = new com.google.android.gms.maps.model.LatLngBounds.Builder();
     
-    for (var marker in markersWindowImages) {
-        builder.include(marker.getPosition());
+    for (var marker in MARKER_WINDOW_IMAGES) {             
+      builder = builder.include(MARKER_WINDOW_IMAGES[marker].position);
     }
-    
-    var bounds = builder.build();    
 
-    var padding = 0; // offset from edges of the map in pixels
+    var bounds = builder.build();    
+    var padding = 100; // offset from edges of the map in pixels
     var cu = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, padding);
-    this.gMap.animateCamera(cu);
+
+    if(centerMarker){
+      var center = com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(centerMarker.getPosition(), this._zoom);
+      this.gMap.moveCamera(cu)
+      this.gMap.animateCamera(center);  
+    }else{
+      this.gMap.animateCamera(cu);  
+    } 
   }
 
   MapView.prototype.enableDefaultFullOptions = function() {
-      var uiSettings = this._gMap.getUiSettings();
+      var uiSettings = this._gMap.getUiSettings();      
       uiSettings.setZoomControlsEnabled(true);
       uiSettings.setZoomGesturesEnabled(true);
       uiSettings.setScrollGesturesEnabled(true);
@@ -489,125 +607,238 @@ var MapView = (function (_super) {
       uiSettings.setRotateGesturesEnabled(true);
       uiSettings.setCompassEnabled(true);
       uiSettings.setIndoorLevelPickerEnabled(true);
+      uiSettings.setAllGesturesEnabled(true);
+      uiSettings.setMyLocationButtonEnabled(true);      
+      uiSettings.setMapToolbarEnabled(true);
   };
 
-  MapView.prototype.addMarker = function(opts) {
+  function getImageLoader(){
+    if(!imageLoader)
+      imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
 
+    if(imageLoader.get())
+      return imageLoader.get()
+
+    imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
+    return imageLoader.get()
+  }
+
+  MapView.prototype.addMarker = function(opts) {
+      
     
-    /*
-    console.log("####################### MapView.prototype.addMarker")
-    console.log(JSON.stringify(opts))
-    console.log("####################### MapView.prototype.addMarker")
-    */
+    //console.log("####################### MapView.prototype.addMarker start")
+    //console.log(JSON.stringify(opts))
+    //console.log("####################### MapView.prototype.addMarker end")
 
     var self = this
 
     if(this.draggable == undefined || this.draggable == null)
       this.draggable = false
 
-    if(opts.latitude && opts.longitude){
-      this.latitude = undefined
-      this.longitude = undefined
-      
-      this.latitude = opts.latitude
-      this.longitude = opts.longitude
+
+    if(opts.latitude){
+      if(isNaN(opts.latitude) && opts.latitude.length > 16)
+        opts.latitude = Number(opts.latitude.substring(0, 16))
+      else
+        opts.latitude = Number(opts.latitude);
+    }
+
+    if(opts.longitude){
+      if(isNaN(opts.longitude) && opts.longitude.length > 16)
+        opts.longitude = Number(opts.longitude.substring(0, 16))
+      else
+        opts.longitude = Number(opts.longitude);
     }    
 
-    if(opts.title)
-      this.title = opts.title
+    if(!opts.title)
+      opts.title = ""
 
-    if(opts.snippet)
-      this.snippet = opts.snippet
+    if(!opts.snippet)
+      opts.snippet = ""
 
-    if(!this.snippet || this.snippet === 0)
-      this.snippet = ""
-
-    if(!this.title || this.title === 0)
-      this.title = ""
 
     var iconToUse = null
 
-    if(!opts.iconPath){
-      iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
-    }else{
-      if(opts.iconPath.indexOf('res://') > -1){
+    if(opts.iconPath){      
+        
+      if(markerIconsCache[opts.iconPath]){
+        iconToUse =   markerIconsCache[opts.iconPath]
+      }else if(opts.iconPath.indexOf('res://') > -1){
         var ctx = application.android.context
-        var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)
-        console.log("#### resName=" + resName)
-        var restId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());
-        console.log("#### restId=" + restId)
+        var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)          
+        var restId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());          
         iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromResource(restId)
+
+        markerIconsCache[opts.iconPath] = iconToUse
+      
       }else{
-        iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromPath(opts.iconPath)        
+
+        if(markerIconsCache[opts.iconPath]){          
+          iconToUse = markerIconsCache[opts.iconPath]                    
+        }else{
+
+          var loaded = false
+
+          try{
+
+            var full_path = 'file://' + opts.iconPath
+            var bitmap = getImageLoader().loadImageSync(full_path)            
+            iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
+            markerIconsCache[opts.iconPath] = iconToUse
+
+          }catch(error){
+            console.log("## addMarker error: " + error)
+          }
+
+          if(!iconToUse){
+            //var iconGenerator = new com.google.maps.android.ui.IconGenerator(this._context)
+
+            var options = new android.graphics.BitmapFactory.Options()
+            options.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(opts.iconPath, options);
+
+            options.inSampleSize = calculateInSampleSize(options, 100, 100);
+            options.inDither = false;                     //Disable Dithering mode
+            options.inPurgeable = true;                   //Tell to gc that whether it needs free memory, the Bitmap can be cleared
+            options.inInputShareable = true;              //Which kind of reference will be used to recover the Bitmap data after being clear, when it will be used in the future
+            //options.inTempStorage = new byte[16 * 1024];                 
+            options.inJustDecodeBounds = false            
+            var bitmap = android.graphics.BitmapFactory.decodeFile(opts.iconPath, options)
+
+            iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
+            markerIconsCache[opts.iconPath] = iconToUse
+          }
+        }
       }
+
+    }else if(opts.androidPinColor != undefined){         
+      iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(opts.androidPinColor)
+    }else{      
+      iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE)
     }
 
     if(opts.clear)
       this.clear()
 
-
     var markerOptions = new com.google.android.gms.maps.model.MarkerOptions();
-    var latLng = new com.google.android.gms.maps.model.LatLng(this.latitude, this.longitude);
+    var latLng = new com.google.android.gms.maps.model.LatLng(opts.latitude, opts.longitude);
     
-    markerOptions.title(this.title);
-    markerOptions.snippet(this.snippet);    
+    markerOptions.title(opts.title);
+    markerOptions.snippet(opts.snippet);    
     markerOptions.position(latLng);
-    markerOptions.draggable(this.draggable);
+
+    if (typeof this.draggable === 'boolean')
+      markerOptions.draggable(this.draggable);
+    else if (typeof this.draggable === 'string')
+      markerOptions.draggable(this.draggable == 'true');
+    else 
+      markerOptions.draggable(false);
+    
     markerOptions.icon(iconToUse);
 
     openedMarker = this._gMap.addMarker(markerOptions);
 
     if(opts.openOnClick == undefined || opts.openOnClick == null)
       opts.openOnClick = true
-
     
-    markersWindowImages[openedMarker] = {
+    MARKER_WINDOW_IMAGES[openedMarker] = {
       'markerKey': opts.markerKey,
       'windowImgPath': opts.windowImgPath,
       'phone': opts.phone || "",
       'email': opts.email || "",
-      'openOnClick': opts.openOnClick
+      'openOnClick': opts.openOnClick,
+      'position': latLng,
+      'latitude': opts.latitude,
+      'longitude': opts.longitude,
+      'marker': openedMarker 
     }
   
 
-    if(opts.showWindow){
-      openedMarker.showInfoWindow()
-    }   
+    if(opts.showWindow)
+      openedMarker.showInfoWindow()  
 
     if(opts.updateCamera){
-      console.log("## opts.updateCamera=" + opts.updateCamera)
-      this.updateCamera()
+      this.latitude = undefined
+      this.longitude = undefined
+      this.latitude = opts.latitude
+      this.longitude = opts.longitude
+      this.fitBounds(openedMarker)      
     }
+
+    try{
+      Runtime.getRuntime().gc()
+      System.gc()
+    }catch(e){
+      console.log("## addMarker")
+    }    
 
     return openedMarker
   };
 
+  MapView.prototype.hasMarkerLocation = function(args){
+
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == args.latitude && it.longitude == args.longitude)
+        return true
+    }    
+    return false
+  }
+
+  MapView.prototype.getMarkerFromLocation = function(args){
+    for(var marker in MARKER_WINDOW_IMAGES){
+      var it = MARKER_WINDOW_IMAGES[marker]
+      if(it.latitude == args.latitude && it.longitude == args.longitude)          
+        return it.marker      
+    }    
+    return undefined
+  }
+
+  MapView.prototype.selectMarker = function(marker){
+    openedMarker = marker
+  }
+
   MapView.prototype.clear = function(){
     this._gMap.clear()
+
+    MARKER_WINDOW_IMAGES = {}
+    openedMarker = undefined
+    //markerIconsCache = {}
+
+    try{
+      Runtime.getRuntime().gc()
+      System.gc()
+    }catch(e){
+      console.log("## clear")
+    }
   }
 
   MapView.prototype.closeMarker = function(){
-    if(openedMarker){
-      openedMarker.setVisible(true)
-    }
+    if(openedMarker)
+      openedMarker.setVisible(true)    
+  }
+
+  MapView.prototype.removeMarker = function(marker){
+    marker.remove()
   }
 
   MapView.prototype.hideWindow = function(){
-    if(openedMarker){
-      openedMarker.hideInfoWindow()
-    }    
+    if(openedMarker)
+      openedMarker.hideInfoWindow()  
   }
 
   MapView.prototype.showWindow = function(){
-    if(openedMarker){
-      openedMarker.showInfoWindow()
-    }
+    if(openedMarker)
+      openedMarker.showInfoWindow()    
   }
 
 
   MapView.prototype.enableMyLocationUpdateListener = function(params) {
     
+    console.log("### enableOndeEstouListener")
+
     mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
+    
 
     var isGPSEnabled = mLocationManager
             .isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
@@ -618,6 +849,8 @@ var MapView = (function (_super) {
 
 
     _locationListener = this.createLocationListener()
+
+    myLocationListenerList.push(_locationListener)
 
     params.minTime = params.minTime ? params.minTime : 60000
     params.minDistance = params.minDistance ? params.minDistance : 10
@@ -663,44 +896,51 @@ var MapView = (function (_super) {
 
   MapView.prototype.addMyLocationMarker = function(args) {
 
-    args = args || {}
-    var lastLocation = getLastLocalization()
+      args = args || {}
+      var lastLocation = getLastLocalization()
+      var self = this
 
-    if(lastLocation){
-      console.log('############## has lastLocation')
-        
-      args.slatitude =  lastLocation.getLatitude() 
-      args.longitude = lastLocation.getLongitude()
-      
-      this.addMarker(args)
+      if(lastLocation){
+        console.log('############## has lastLocation')
+          
+        args.latitude =  lastLocation.getLatitude() 
+        args.longitude = lastLocation.getLongitude()      
+        args.marker = this.addMarker(args)
 
-    }else{
-      console.log('############## not has lastLocation')
-      onlyInitialPosition = true    
-      this.enableMyLocationUpdateListener({
-      minTime: 10, 
-      minDistance: 1,
-      myLocationUpdateCallback:  function(location){
-          args.latitude = location.latitude
-          args.longitude = location.longitude
-          self.addMarker(args)
-        }
-      })
-    }
-  };  
+        if(args.doneCallback)
+          args.doneCallback(args)
+
+      }else{
+        console.log('############## not has lastLocation')
+        onlyInitialPosition = true    
+        this.enableMyLocationUpdateListener({
+        minTime: 10, 
+        minDistance: 1,
+        myLocationUpdateCallback:  function(location){
+            args.latitude = location.latitude
+            args.longitude = location.longitude          
+            args.marker = self.addMarker(args)
+
+            if(args.doneCallback)
+              args.doneCallback(args)
+          }
+        })
+      }
+    }; 
 
   MapView.prototype.getMyLocationMarker = function(myLocationUpdateCallback) {    
     var self = this
     onlyInitialPosition = true    
     this.enableMyLocationUpdateListener({
-      minTime: 10, 
-      minDistance: 1,
+      minTime: 0, 
+      minDistance: 0,
       myLocationUpdateCallback:  myLocationUpdateCallback
     })
   };   
 
   MapView.prototype.disableMyLocationUpdateListener = function(){
-    if(_locationListener && mLocationManager)
+
+    if(mLocationManager && _locationListener)
       mLocationManager.removeUpdates(_locationListener)
 
     onlyInitialPosition = false
@@ -717,7 +957,7 @@ var MapView = (function (_super) {
 
         console.log("############# location updated to " + location)
 
-
+        
           if(onlyInitialPosition){
             self.disableMyLocationUpdateListener()
           }
@@ -733,17 +973,17 @@ var MapView = (function (_super) {
 
           if(_myLocationUpdateCallback)
             _myLocationUpdateCallback(args)
-
-          
       },
 
       onProviderDisabled: function(provider){ 
         console.log("############# locationListener.onProviderDisabled ")     
         showGpsDisabledAlert()
       },
+
       onProviderEnabled: function(provider){ 
         console.log("############# locationListener.onProviderEnabled ") 
       },
+
       onStatusChanged: function(provider, status, extras){ 
         console.log("############# locationListener.onStatusChanged ") 
       }
@@ -753,6 +993,38 @@ var MapView = (function (_super) {
     return locationListener 
   };
 
+  MapView.prototype.navigateWithGoogleNavigator = function(args){
+      
+    var mapsPkg = "com.google.android.apps.maps"
+    var gmmIntentUri = android.net.Uri.parse("google.navigation:q=" + args.latitude + "," + args.longitude);
+    var mapIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, gmmIntentUri);
+    mapIntent.setFlags(android.content.Intent.FLAG_ACTIVITY_NO_HISTORY);
+    mapIntent.setPackage(mapsPkg);
+
+    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){      
+      application.android.currentContext.startActivity(mapIntent)
+    }else{
+      var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
+      application.android.currentContext.startActivity(browserIntent);              
+    }
+  }
+
+  MapView.prototype.openGoogleStreetView = function(args){
+
+    var mapsPkg = "com.google.android.apps.maps"
+    var gmmIntentUri = android.net.Uri.parse("google.streetview:cbll=" + args.latitude + "," + args.longitude);
+    var mapIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, gmmIntentUri);
+    
+    mapIntent.setPackage(mapsPkg);
+
+    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){
+      var act = application.android.foregroundActivity || application.android.startActivity;
+      act.startActivity(mapIntent)
+    }else{
+      var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
+      application.android.currentContext.startActivity(browserIntent);              
+    }
+  }
 
   MapView.prototype.getLocationFromLocationName = function(args){
 
@@ -762,9 +1034,7 @@ var MapView = (function (_super) {
       
       args.value = capitalize(args.value).replace(new RegExp(" ", 'g'), "");
 
-      console.log("###################################")
-      console.log("##### find by " + args.value)
-      console.log("###################################")
+
 
       var limit = args.limit || 5
       var addresses = geoCoder.getFromLocationName(args.value, limit);   
@@ -821,7 +1091,7 @@ var MapView = (function (_super) {
 
     dialogs.confirm({
       title: "Aviso",
-      message: "Nenhum provedor GPS ativo. Habilite seu GPS ou conecte sua internet.",
+      message: "Nenhum provedor GPS ativo. Habilite seu GPS ou sua internet.",
       okButtonText: "Configurações",
       cancelButtonText: "Cancelar"
     }).then(function (result) {                          
@@ -837,103 +1107,110 @@ var MapView = (function (_super) {
 
   function createCustonWindowMarker(){
 
+    var self = this
     return new com.google.android.gms.maps.GoogleMap.InfoWindowAdapter({
         
           
         getInfoWindow: function(marker) {
-            var ctx = application.android.context
-            var custom_info_window = ctx.getResources().getIdentifier('custom_info_window', "layout", ctx.getPackageName());
-            var mWindow = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
-            this.render(marker, mWindow);
-            return mWindow;
+          var ctx = application.android.context
+          var custom_info_window = ctx.getResources().getIdentifier('custom_info_window', "layout", ctx.getPackageName());
+          var mWindow = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
+          this.render(marker, mWindow);
+          return mWindow;
         },
 
         getInfoContents: function(marker) {
           var ctx = application.android.context
-            var custom_info_contents = ctx.getResources().getIdentifier('custom_info_contents', "layout", ctx.getPackageName());
-            var mContents = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
-            this.render(marker, mContents);
-            return mContents;
+          var custom_info_contents = ctx.getResources().getIdentifier('custom_info_contents', "layout", ctx.getPackageName());
+          var mContents = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
+          this.render(marker, mContents);
+          return mContents;
         },
 
         render: function(marker, view) {
 
-            var ctx = application.android.context
-            var width = platformModule.screen.mainScreen.widthPixels
+          var ctx = application.android.context
+          var width = platformModule.screen.mainScreen.widthPixels
+          var badge = null
 
-            var badge = null
+          if(MARKER_WINDOW_IMAGES[marker] && MARKER_WINDOW_IMAGES[marker].windowImgPath)
+            badge = MARKER_WINDOW_IMAGES[marker].windowImgPath
 
-            if(markersWindowImages[marker] && markersWindowImages[marker].windowImgPath)
-              badge = markersWindowImages[marker].windowImgPath
-            else
-              console.log('## not has image to custon window')
-                  
-            if(badge){
-              var bitmap = android.graphics.BitmapFactory.decodeFile(badge);
-              var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
-              view.findViewById(badge_id).setImageBitmap(bitmap);                            
+                
+          if(badge){
+
+            var bitmap
+
+            try{
+              var full_path = 'file://' + badge
+              bitmap = getImageLoader().loadImageSync(full_path)
+            }catch(error){
+              console.log("## render window error: " + error)
             } 
 
-            var title = marker.getTitle();
-            var title_id = ctx.getResources().getIdentifier('title', "id", ctx.getPackageName());
-            var titleUi = view.findViewById(title_id);
-
-            if (title != null) {
-                var titleText = new android.text.SpannableString(title);
-                titleUi.setText(titleText);
-            } else {
-                titleUi.setText("");
+            if(!bitmap){
+              var options = new android.graphics.BitmapFactory.Options()
+              options.inDither = false;                     //Disable Dithering mode
+              options.inPurgeable = true;                   //Tell to gc that whether it needs free memory, the Bitmap can be cleared
+              options.inInputShareable = true;              //Which kind of reference will be used to recover the Bitmap data after being clear, when it will be used in the future
+              options.inJustDecodeBounds = false
+              bitmap = android.graphics.BitmapFactory.decodeFile(badge, options);   
             }
 
-            var snippet = marker.getSnippet();
-            var snippet_id = ctx.getResources().getIdentifier('snippet', "id", ctx.getPackageName());
-            var snippetUi = view.findViewById(snippet_id);
 
-            if (snippet) {
-                var snippetText = new android.text.SpannableString(snippet);
-                snippetUi.setText(snippetText);
-            } else {
-                snippetUi.setText("");
-            }
+            var badge_id = ctx.getResources().getIdentifier('badge', "id", ctx.getPackageName());
+            view.findViewById(badge_id).setImageBitmap(bitmap);          
+          } 
 
-            var phone = markersWindowImages[marker].phone;
-            var phone_id = ctx.getResources().getIdentifier('phone', "id", ctx.getPackageName());
-            var phoneUi = view.findViewById(phone_id);
+          var title = marker.getTitle();
+          var title_id = ctx.getResources().getIdentifier('title', "id", ctx.getPackageName());
+          var titleUi = view.findViewById(title_id);
 
-            if (phone) {
-                var phoneText = new android.text.SpannableString(phone);
-                phoneUi.setText(phoneText);
-            } else {
-                phoneUi.setVisibility(android.view.View.GONE);
-            }
+          if (title != null)               
+            titleUi.setText(new android.text.SpannableString(title));
+          else 
+            titleUi.setText("");
+          
+          var snippet = marker.getSnippet();
+          var snippet_id = ctx.getResources().getIdentifier('snippet', "id", ctx.getPackageName());
+          var snippetUi = view.findViewById(snippet_id);
 
-            var email = markersWindowImages[marker].email;
-            var email_id = ctx.getResources().getIdentifier('email', "id", ctx.getPackageName());
-            var emailUi = view.findViewById(email_id);
+          if (snippet)
+            snippetUi.setText(new android.text.SpannableString(snippet));
+          else
+            snippetUi.setText("");          
 
-            if (email) {
-                var emailText = new android.text.SpannableString(email);
-                emailUi.setText(emailText);
-            } else {
-                emailUi.setVisibility(android.view.View.GONE);
-            }
-            
-            var btnMarkerOpen_id = ctx.getResources().getIdentifier('btnMarkerOpen', "id", ctx.getPackageName());
-            var btnMarkerOpenUi = view.findViewById(btnMarkerOpen_id)
- 
-            if(markersWindowImages[marker].openOnClick){
-              btnMarkerOpenUi.setOnClickListener(new android.view.View.OnClickListener({
-                onClick: function(view){
-                  
-                  if(self._onInfoWindowClickCallback) 
-                    self._onInfoWindowClickCallback({                    
-                      'markerKey': markersWindowImages[marker] ? markersWindowImages[marker].markerKey : null
-                    }) 
-                }
-              }))
-            }else{
-                btnMarkerOpenUi.setVisibility(android.view.View.GONE)
-            }
+          var phone = MARKER_WINDOW_IMAGES[marker].phone;
+          var phone_id = ctx.getResources().getIdentifier('phone', "id", ctx.getPackageName());
+          var phoneUi = view.findViewById(phone_id);
+
+          if (phone)
+            phoneUi.setText(new android.text.SpannableString(phone));
+          else
+            phoneUi.setVisibility(android.view.View.GONE);
+          
+          var email = MARKER_WINDOW_IMAGES[marker].email;
+          var email_id = ctx.getResources().getIdentifier('email', "id", ctx.getPackageName());
+          var emailUi = view.findViewById(email_id);
+
+          if (email)
+            emailUi.setText(new android.text.SpannableString(email));
+          else
+            emailUi.setVisibility(android.view.View.GONE);          
+          
+          var btnMarkerOpen_id = ctx.getResources().getIdentifier('btnMarkerOpen', "id", ctx.getPackageName());
+          var btnMarkerOpenUi = view.findViewById(btnMarkerOpen_id)
+
+          if(MARKER_WINDOW_IMAGES[marker].openOnClick){
+            btnMarkerOpenUi.setOnClickListener(new android.view.View.OnClickListener({
+              onClick: function(view){                
+                if(self._onInfoWindowClickCallback) 
+                  self._onInfoWindowClickCallback(createMarkerEventData(marker)) 
+              }
+            }))
+          }else{
+              btnMarkerOpenUi.setVisibility(android.view.View.GONE)
+          }
         },
     })    
   }
@@ -945,26 +1222,58 @@ var MapView = (function (_super) {
   MapView.prototype.distance = function(params){
     // let's give those values meaningful variable names
 
-    var _lat  = isNaN(params.lat) ? radians(java.lang.Double.parseDouble(params.lat)) : radians(params.lat)
-    var _lng  = isNaN(params.lng) ? radians(java.lang.Double.parseDouble(params.lng)) : radians(params.lng)
-    var _lat2 = isNaN(params.lat2) ? radians(java.lang.Double.parseDouble(params.lat2)) : radians(params.lat2)
-    var _lng2 = isNaN(params.lng2) ? radians(java.lang.Double.parseDouble(params.lng2)) : radians(params.lng2)
-
-    _lat  = isNaN(_lat) ? 0 : _lat
-    _lng  = isNaN(_lng) ? 0 : _lng
-    _lat2  = isNaN(_lat2) ? 0 : _lat2
-    _lng2  = isNaN(_lng2) ? 0 : _lng2
-
+    var _lat  = radians(getCoordinate(params.origin.latitude))
+    var _lng  = radians(getCoordinate(params.origin.longitude))
+    var _lat2 = radians(getCoordinate(params.destination.latitude))
+    var _lng2 = radians(getCoordinate(params.destination.longitude))
 
     // calculate the distance
     var result = 6371.0 * java.lang.Math.acos(java.lang.Math.cos(_lat2) * java.lang.Math.cos(_lat) * java.lang.Math.cos(_lng - _lng2) + java.lang.Math.sin(_lat2) * java.lang.Math.sin(_lat))
     return result
   }  
 
+
+
+  function getCoordinate(coordinate){
+
+    if(!coordinate)
+      return 0.0
+
+    if(typeof coordinate == 'number')
+      return coordinate  
+
+    if(isNaN(coordinate) && coordinate.length > 16)      
+      return java.lang.Double.parseDouble(coordinate.substring(0, 16))    
+    else
+      return java.lang.Double.parseDouble(coordinate)    
+
+  }
+
+  function calculateInSampleSize(options, reqWidth, reqHeight) {
+      // Raw height and width of image
+      var height = options.outHeight;
+      var width = options.outWidth;
+      var inSampleSize = 1;
+
+      if (height > reqHeight || width > reqWidth) {
+
+          var halfHeight = height / 2;
+          var halfWidth = width / 2;
+
+          // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+          // height and width larger than the requested height and width.
+          while ((halfHeight / inSampleSize) >= reqHeight
+                  && (halfWidth / inSampleSize) >= reqWidth) {
+              inSampleSize *= 2;
+          }
+      }
+
+      return inSampleSize;
+  }
+
   return MapView;
 
 })(common.MapView);
 
 exports.MapView = MapView;
-
 

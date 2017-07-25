@@ -4,6 +4,7 @@ var route = require("./route");
 var colorModule = require("color");
 var Color = colorModule.Color;
 var platform = require('platform')
+var utils = require("utils/utils")
 
 require("utils/module-merge").merge(common, module.exports);
 
@@ -24,6 +25,8 @@ var openedMarker
 var routeTask = new route.RouteTask();  
 var navigationOriginMarker
 
+var sharedApplication = utils.ios.getter(UIApplication, UIApplication.sharedApplication)
+var mainScreen = utils.ios.getter(UIScreen, UIScreen.mainScreen)
 
 var MapView = (function (_super) {
   global.__extends(MapView, _super);
@@ -205,7 +208,7 @@ var MapView = (function (_super) {
           iconToUse  = UIImage.imageNamed(resName)
         }else{
           var imageData = NSData.dataWithContentsOfFile(opts.iconPath)
-          iconToUse  = UIImage.imageWithDataScale(imageData, platform.screen.mainScreen.scale)
+          iconToUse  = UIImage.imageWithDataScale(imageData, mainScreen.scale)
         }
       }
     }
@@ -218,7 +221,16 @@ var MapView = (function (_super) {
     openedMarker.position = latLng;    
     openedMarker.title = opts.title;
     openedMarker.snippet = opts.snippet;    
-    openedMarker.draggable = this.draggable;
+    
+
+    if (typeof this.draggable === 'boolean')
+      openedMarker.draggable = this.draggable
+    else if (typeof this.draggable === 'string')
+      openedMarker.draggable = this.draggable == 'true'
+    else 
+      openedMarker.draggable = false
+
+
     openedMarker.icon  = iconToUse;
 
     openedMarker.tracksInfoWindowChanges = true    
@@ -545,22 +557,22 @@ var MapView = (function (_super) {
   }
 
   MapView.prototype.navigateWithGoogleNavigator = function(args){    
-    if (UIApplication.sharedApplication().canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
+    if (sharedApplication.canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
       var url = "comgooglemaps://?saddr=&daddr=" + args.latitude + "," + args.longitude
-      UIApplication.sharedApplication().openURL(NSURL.URLWithString(url));
+      sharedApplication.openURL(NSURL.URLWithString(url));
     } else {
       var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
-      UIApplication.sharedApplication().openURL(NSURL.URLWithString(iTunesLink));      
+      sharedApplication.openURL(NSURL.URLWithString(iTunesLink));      
     }    
   }
 
   MapView.prototype.openGoogleStreetView = function(args){    
-    if (UIApplication.sharedApplication().canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
+    if (sharedApplication.canOpenURL(NSURL.URLWithString("comgooglemaps://"))) {
       var url = "comgooglemaps://?center=" + args.latitude + "," + args.longitude + "&mapmode=streetview"
-      UIApplication.sharedApplication().openURL(NSURL.URLWithString(url));
+      sharedApplication.openURL(NSURL.URLWithString(url));
     } else {
       var iTunesLink = "itms://itunes.apple.com/us/app/apple-store/id585027354?mt=8";
-      UIApplication.sharedApplication().openURL(NSURL.URLWithString(iTunesLink));      
+      sharedApplication.openURL(NSURL.URLWithString(iTunesLink));      
     }    
   }  
 

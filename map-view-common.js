@@ -1,9 +1,6 @@
 var view = require("ui/core/view");
-var dObservable = require("ui/core/dependency-observable");
-var proxy = require("ui/core/proxy");
 
 var MAPVIEW = "MapView";
-var CAMERA_PROPERTIES = [ "latitude", "longitude", "bearing", "zoom", "tilt", "draggable", "title", "snippet", "defaultIcon", "mapType", "zoonMargin", "zoomPosition", "navigationControlMargin", "navigationControlPosition", "useCustonWindow"];
 
 var MapView = (function (_super) {
   __extends(MapView, _super);
@@ -80,39 +77,159 @@ var MapView = (function (_super) {
 
   MapView.mapReadyEvent = "mapReady";
 
-  var onCameraPropertiesChanged = function(data) {    
-    var mapView = data.object;    
-    mapView.updateCamera(data);
-  }
 
-  CAMERA_PROPERTIES.forEach(function( name ) {
-    var metadata = new dObservable.PropertyMetadata(0, dObservable.PropertyMetadataSettings.None, onCameraPropertiesChanged);
-    var property = new dObservable.Property(name, MAPVIEW, metadata);
-    exports[ name + "Property" ] = property;
-
-    Object.defineProperty( MapView.prototype, name, {
-      get: function() {
-        return this._getValue( property );
-      },
-      set: function( value ) {
-        var parsedValue = value
-
-        if(value && (name == 'latitude' || name == 'longitude')){
-
-          if(value && !isNaN(value) && value.length > 16)
-            parsedValue = Number(value.substring(0, 16))
-          else
-            parsedValue = Number(value);
-
-        }
-
-        this._setValue( property, parsedValue);
-      }
-    });
-  });
 
   return MapView;
 })(view.View);
+
+
+exports.latitudeProperty = new view.Property({
+    name: "latitude",
+    valueChanged: function (target, oldValue, newValue) {
+        
+        if(newValue && !isNaN(newValue) && newValue.length > 16)
+          target.latitude = Number(newValue.substring(0, 16))
+        else
+          target.latitude = Number(newValue);
+
+        target.updateCamera()
+    }
+});
+
+exports.longitudeProperty = new view.Property({
+    name: "longitude",
+    valueChanged: function (target, oldValue, newValue) {
+        
+        if(newValue && !isNaN(newValue) && newValue.length > 16)
+          target.longitude = Number(newValue.substring(0, 16))
+        else
+          target.longitude = Number(newValue);
+
+        target.updateCamera()
+    }
+});
+
+
+
+exports.bearingProperty = new view.Property({
+    name: "bearing",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.bearing = newValue
+        target.updateCamera()
+    }
+});
+
+exports.zoomProperty = new view.Property({
+    name: "zoom",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.zoom = newValue
+        target.updateCamera()
+    }
+});
+
+exports.tiltProperty = new view.Property({
+    name: "tilt",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.tilt = newValue
+        target.updateCamera()
+    }
+});
+
+exports.draggableProperty = new view.Property({
+    name: "draggable",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.draggable = newValue
+        target.updateCamera()
+    }
+});
+
+exports.titleProperty = new view.Property({
+    name: "title",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.title = newValue
+        target.updateCamera()
+    }
+});
+
+exports.snippetProperty = new view.Property({
+    name: "snippet",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.snippet = newValue
+        target.updateCamera()
+    }
+});
+
+exports.defaultIconProperty = new view.Property({
+    name: "defaultIcon",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.defaultIcon = newValue
+        target.updateCamera()
+    }
+});
+
+exports.mapTypeProperty = new view.Property({
+    name: "mapType",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.mapType = newValue
+        target.updateCamera()
+    }
+});
+
+exports.zoonMarginProperty = new view.Property({
+    name: "zoonMargin",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.zoonMargin = newValue
+        target.updateCamera()
+    }
+});
+
+exports.zoomPositionProperty = new view.Property({
+    name: "zoomPosition",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.zoomPosition = newValue
+        target.updateCamera()
+    }
+});
+
+exports.navigationControlMarginProperty = new view.Property({
+    name: "navigationControlMargin",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.navigationControlMargin = newValue
+        target.updateCamera()
+    }
+});
+
+
+exports.navigationControlPositionProperty = new view.Property({
+    name: "navigationControlPosition",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.navigationControlPosition = newValue
+        target.updateCamera()
+    }
+});
+
+exports.useCustonWindowProperty = new view.Property({
+    name: "useCustonWindow",
+    valueChanged: function (target, oldValue, newValue) {        
+        target.useCustonWindow = newValue
+        target.updateCamera()
+    }
+});
+
+
+exports.bearingProperty.register(MapView);
+exports.zoomProperty.register(MapView);
+exports.tiltProperty.register(MapView);
+exports.draggableProperty.register(MapView);
+exports.titleProperty.register(MapView);
+exports.snippetProperty.register(MapView);
+exports.defaultIconProperty.register(MapView);
+exports.mapTypeProperty.register(MapView);
+exports.zoonMarginProperty.register(MapView);
+exports.zoomPositionProperty.register(MapView);
+exports.navigationControlMarginProperty.register(MapView);
+exports.navigationControlPositionProperty.register(MapView);
+exports.useCustonWindowProperty.register(MapView);
 
 
 exports.MapView = MapView;

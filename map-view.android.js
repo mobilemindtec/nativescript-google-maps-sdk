@@ -71,6 +71,14 @@ var MapView = (function (_super) {
 
   })
 
+  Object.defineProperty(MapView.prototype, "_nativeView", {
+      get: function () {
+          return this._android;
+      },
+      enumerable: true,
+      configurable: true
+  });
+
   Object.defineProperty(MapView.prototype, "android", {
     get: function () {
       return this._android;
@@ -137,7 +145,7 @@ var MapView = (function (_super) {
     application.android.off(application.AndroidApplication.activityDestroyedEvent, this.onActivityDestroyed, this);
   }
 
-  MapView.prototype._createUI = function () {
+  MapView.prototype.createNativeView = function () {
     
     var that = new WeakRef(this);
     var self = this
@@ -319,6 +327,9 @@ var MapView = (function (_super) {
     });
 
     this._android.getMapAsync(mapReadyCallback);
+
+    this.nativeView = this._android
+    return this.nativeView    
   };
 
 
@@ -715,7 +726,14 @@ var MapView = (function (_super) {
     markerOptions.title(opts.title);
     markerOptions.snippet(opts.snippet);    
     markerOptions.position(latLng);
-    markerOptions.draggable(this.draggable);
+
+    if (typeof this.draggable === 'boolean')
+      markerOptions.draggable(this.draggable);
+    else if (typeof this.draggable === 'string')
+      markerOptions.draggable(this.draggable == 'true');
+    else 
+      markerOptions.draggable(false);
+    
     markerOptions.icon(iconToUse);
 
     openedMarker = this._gMap.addMarker(markerOptions);

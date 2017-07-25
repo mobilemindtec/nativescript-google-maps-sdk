@@ -7,8 +7,5 @@ android {
 }
 
 dependencies {
-  compile "com.google.android.gms:play-services-maps:9.6.1"
-  compile "com.google.maps.android:android-maps-utils:+"
+  compile "com.google.android.gms:play-services-maps:11.0.2"
 }
-
-apply plugin: 'com.google.gms.google-services'

@@ -32,7 +32,7 @@ for (var i = 0; i < points.length; i++) {
 };
 
 
-var viewModel = new observableModule.Observable({
+var viewModel = new observableModule.fromObject({
   'mapa': {
     latitude: -29.1819607,
     longitude: -51.4926093,
