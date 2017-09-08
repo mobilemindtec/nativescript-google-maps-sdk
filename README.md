@@ -150,7 +150,7 @@ exports.OnMapReady =  function(args) {
 
 ### Features
 
-* Add markers / custom icon pin
+* Custom icon pin
 * Trace route / navigate
 * Fit bounds
 * Custom window marker
