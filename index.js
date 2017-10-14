@@ -1,1 +1,1 @@
-exports.MapView = require("./map-view");
+require("utils/module-merge").merge(require("./map-view"), exports)

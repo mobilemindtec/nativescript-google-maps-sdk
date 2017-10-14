@@ -114,7 +114,7 @@ exports.longitudeProperty = new view.Property({
 exports.bearingProperty = new view.Property({
     name: "bearing",
     valueChanged: function (target, oldValue, newValue) {        
-        target.bearing = newValue
+        target.bearing = parseInt(newValue) || 0
         target.updateCamera()
     }
 });
@@ -122,7 +122,7 @@ exports.bearingProperty = new view.Property({
 exports.zoomProperty = new view.Property({
     name: "zoom",
     valueChanged: function (target, oldValue, newValue) {        
-        target.zoom = newValue
+        target.zoom = parseInt(newValue) || 0
         target.updateCamera()
     }
 });
@@ -130,7 +130,7 @@ exports.zoomProperty = new view.Property({
 exports.tiltProperty = new view.Property({
     name: "tilt",
     valueChanged: function (target, oldValue, newValue) {        
-        target.tilt = newValue
+        target.tilt = newValue || ""
         target.updateCamera()
     }
 });
@@ -138,7 +138,7 @@ exports.tiltProperty = new view.Property({
 exports.draggableProperty = new view.Property({
     name: "draggable",
     valueChanged: function (target, oldValue, newValue) {        
-        target.draggable = newValue
+        target.draggable = newValue == true || newValue == 'true'
         target.updateCamera()
     }
 });
@@ -146,7 +146,7 @@ exports.draggableProperty = new view.Property({
 exports.titleProperty = new view.Property({
     name: "title",
     valueChanged: function (target, oldValue, newValue) {        
-        target.title = newValue
+        target.title = newValue || ""
         target.updateCamera()
     }
 });
@@ -154,7 +154,7 @@ exports.titleProperty = new view.Property({
 exports.snippetProperty = new view.Property({
     name: "snippet",
     valueChanged: function (target, oldValue, newValue) {        
-        target.snippet = newValue
+        target.snippet = newValue || ""
         target.updateCamera()
     }
 });
@@ -178,7 +178,7 @@ exports.mapTypeProperty = new view.Property({
 exports.zoonMarginProperty = new view.Property({
     name: "zoonMargin",
     valueChanged: function (target, oldValue, newValue) {        
-        target.zoonMargin = newValue
+        target.zoonMargin = parseInt(newValue) || 0
         target.updateCamera()
     }
 });
@@ -194,7 +194,7 @@ exports.zoomPositionProperty = new view.Property({
 exports.navigationControlMarginProperty = new view.Property({
     name: "navigationControlMargin",
     valueChanged: function (target, oldValue, newValue) {        
-        target.navigationControlMargin = newValue
+        target.navigationControlMargin = parseInt(newValue) || 0
         target.updateCamera()
     }
 });
@@ -211,7 +211,7 @@ exports.navigationControlPositionProperty = new view.Property({
 exports.useCustonWindowProperty = new view.Property({
     name: "useCustonWindow",
     valueChanged: function (target, oldValue, newValue) {        
-        target.useCustonWindow = newValue
+        target.useCustonWindow = newValue == true || newValue == 'true'
         target.updateCamera()
     }
 });

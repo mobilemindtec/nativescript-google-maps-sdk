@@ -1,5 +1,5 @@
 { "name" : "nativescript-google-maps-sdk",
-  "main" : "map-view.js", 
+  "main" : "index.js", 
   "version": "0.0.1",
   "nativescript": {
     "platforms": {

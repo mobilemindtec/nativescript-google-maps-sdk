@@ -256,9 +256,9 @@ var MapView = (function (_super) {
         if(self.draggable)
           mView._gMap.setOnMarkerDragListener(_onMarkerDragListener)
 
-
-        if(self.useCustonWindow && self.useCustonWindow == true)
+        if(self.useCustonWindow && ( self.useCustonWindow == true  || self.useCustonWindow == 'true')){
           mView._gMap.setInfoWindowAdapter(createCustonWindowMarker());                   
+        }
 
         mView._gMap.setOnInfoWindowClickListener(new com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener({
            onInfoWindowClick: function(marker){
@@ -613,6 +613,8 @@ var MapView = (function (_super) {
   };
 
   function getImageLoader(){
+
+
     if(!imageLoader)
       imageLoader = new WeakRef(com.nostra13.universalimageloader.core.ImageLoader.getInstance())
 
@@ -681,8 +683,13 @@ var MapView = (function (_super) {
 
           try{
 
+            var options = new com.nostra13.universalimageloader.core.DisplayImageOptions.Builder()
+              .cacheInMemory(true)
+              .cacheOnDisc(true)
+              .build();
+
             var full_path = 'file://' + opts.iconPath
-            var bitmap = getImageLoader().loadImageSync(full_path)            
+            var bitmap = getImageLoader().loadImageSync(full_path, options)            
             iconToUse = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(bitmap)
             markerIconsCache[opts.iconPath] = iconToUse
 
@@ -1107,6 +1114,7 @@ var MapView = (function (_super) {
 
   function createCustonWindowMarker(){
 
+
     var self = this
     return new com.google.android.gms.maps.GoogleMap.InfoWindowAdapter({
         
@@ -1128,7 +1136,6 @@ var MapView = (function (_super) {
         },
 
         render: function(marker, view) {
-
           var ctx = application.android.context
           var width = platformModule.screen.mainScreen.widthPixels
           var badge = null
@@ -1142,8 +1149,14 @@ var MapView = (function (_super) {
             var bitmap
 
             try{
+
+              var options = new com.nostra13.universalimageloader.core.DisplayImageOptions.Builder()
+                .cacheInMemory(true)
+                .cacheOnDisc(true)
+                .build();
+
               var full_path = 'file://' + badge
-              bitmap = getImageLoader().loadImageSync(full_path)
+              bitmap = getImageLoader().loadImageSync(full_path, options)
             }catch(error){
               console.log("## render window error: " + error)
             } 
