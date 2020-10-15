@@ -25,8 +25,8 @@ var openedMarker
 var routeTask = new route.RouteTask();  
 var navigationOriginMarker
 
-var sharedApplication = utils.ios.getter(UIApplication, UIApplication.sharedApplication)
-var mainScreen = utils.ios.getter(UIScreen, UIScreen.mainScreen)
+var sharedApplication = UIApplication.sharedApplication
+var mainScreen = UIScreen.mainScreen
 
 var MapView = (function (_super) {
   global.__extends(MapView, _super);
