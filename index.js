@@ -1,1 +1,1 @@
-require("utils/module-merge").merge(require("./map-view"), exports)
+export * from "./map-view"

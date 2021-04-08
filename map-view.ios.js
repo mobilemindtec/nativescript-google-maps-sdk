@@ -1,8 +1,10 @@
-import { Application, Color } from "@nativescript/core"
-import * from "./map-view-common"
-import {* as route} from "./route"
+var Application = require("@nativescript/core").Application
+var Color = require("@nativescript/core").Color
+var common = require("./map-view-common")
+var dialogs = require("@nativescript/core/ui/dialogs")
+var route = require("./route")
 
-export * from "./map-view-common"
+Object.assign(module.exports, require("./map-view-common"))
 
 var onlyInitialPosition = false
 var _myLocationUpdateCallback 
