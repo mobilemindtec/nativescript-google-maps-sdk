@@ -1,4 +1,4 @@
-var view = require("ui/core/view");
+var view = require("@nativescrit/core/ui/core/view");
 
 var MAPVIEW = "MapView";
 

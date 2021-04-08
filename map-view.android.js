@@ -1,9 +1,11 @@
-var application = require("application");
-var common = require("./map-view-common");
-var platformModule = require("platform");
-var dialogs = require("ui/dialogs");
-var route = require("./route");
-require("utils/module-merge").merge(common, module.exports);
+
+import { Application } from "@nativescript/core"
+
+import * from "./map-view-common"
+import {* as dialogs} from "@nativescript/core/ui/dialogs";
+import { * as route } from "./route";
+
+export * from "./map-view-common"
 
 var onlyInitialPosition = false
 var _myLocationUpdateCallback 
@@ -129,20 +131,20 @@ var MapView = (function (_super) {
   MapView.prototype.onLoaded = function () {
     _super.prototype.onLoaded.apply(this, arguments);
 
-    application.android.on(application.AndroidApplication.activityPausedEvent, this.onActivityPaused, this);
-    application.android.on(application.AndroidApplication.activityResumedEvent, this.onActivityResumed, this);
-    application.android.on(application.AndroidApplication.saveActivityStateEvent, this.onActivitySaveInstanceState, this);
-    application.android.on(application.AndroidApplication.activityDestroyedEvent, this.onActivityDestroyed, this);
+    Application.android.on(Application.AndroidApplication.activityPausedEvent, this.onActivityPaused, this);
+    Application.android.on(Application.AndroidApplication.activityResumedEvent, this.onActivityResumed, this);
+    Application.android.on(Application.AndroidApplication.saveActivityStateEvent, this.onActivitySaveInstanceState, this);
+    Application.android.on(Application.AndroidApplication.activityDestroyedEvent, this.onActivityDestroyed, this);
 
   }
 
   MapView.prototype.onUnloaded = function () {
     _super.prototype.onUnloaded.apply(this, arguments);
 
-    application.android.off(application.AndroidApplication.activityPausedEvent, this.onActivityPaused, this);
-    application.android.off(application.AndroidApplication.activityResumedEvent, this.onActivityResumed, this);
-    application.android.off(application.AndroidApplication.saveActivityStateEvent, this.onActivitySaveInstanceState, this);
-    application.android.off(application.AndroidApplication.activityDestroyedEvent, this.onActivityDestroyed, this);
+    Application.android.off(Application.AndroidApplication.activityPausedEvent, this.onActivityPaused, this);
+    Application.android.off(Application.AndroidApplication.activityResumedEvent, this.onActivityResumed, this);
+    Application.android.off(Application.AndroidApplication.saveActivityStateEvent, this.onActivitySaveInstanceState, this);
+    Application.android.off(Application.AndroidApplication.activityDestroyedEvent, this.onActivityDestroyed, this);
   }
 
   MapView.prototype.createNativeView = function () {
@@ -666,7 +668,7 @@ var MapView = (function (_super) {
       if(markerIconsCache[opts.iconPath]){
         iconToUse =   markerIconsCache[opts.iconPath]
       }else if(opts.iconPath.indexOf('res://') > -1){
-        var ctx = application.android.context
+        var ctx = Application.android.foregroundActivity || Application.android.startActivity
         var resName = opts.iconPath.substring('res://'.length, opts.iconPath.length)          
         var restId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());          
         iconToUse  = com.google.android.gms.maps.model.BitmapDescriptorFactory.fromResource(restId)
@@ -844,7 +846,7 @@ var MapView = (function (_super) {
     
     console.log("### enableOndeEstouListener")
 
-    mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
+    mLocationManager =  Application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
     
 
     var isGPSEnabled = mLocationManager
@@ -881,7 +883,7 @@ var MapView = (function (_super) {
 
   function getLastLocalization(){
 
-    mLocationManager =  application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
+    mLocationManager =  Application.android.context.getSystemService(android.content.Context.LOCATION_SERVICE);
 
     var lastLocation
     var isGPSEnabled = mLocationManager
@@ -1008,11 +1010,11 @@ var MapView = (function (_super) {
     mapIntent.setFlags(android.content.Intent.FLAG_ACTIVITY_NO_HISTORY);
     mapIntent.setPackage(mapsPkg);
 
-    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){      
-      application.android.currentContext.startActivity(mapIntent)
+    if(mapIntent.resolveActivity(Application.android.context.getPackageManager()) != null){      
+      Application.android.currentContext.startActivity(mapIntent)
     }else{
       var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
-      application.android.currentContext.startActivity(browserIntent);              
+      Application.android.currentContext.startActivity(browserIntent);              
     }
   }
 
@@ -1024,12 +1026,12 @@ var MapView = (function (_super) {
     
     mapIntent.setPackage(mapsPkg);
 
-    if(mapIntent.resolveActivity(application.android.context.getPackageManager()) != null){
-      var act = application.android.foregroundActivity || application.android.startActivity;
+    if(mapIntent.resolveActivity(Application.android.context.getPackageManager()) != null){
+      var act = Application.android.foregroundActivity || Application.android.startActivity;
       act.startActivity(mapIntent)
     }else{
       var browserIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + mapsPkg));        
-      application.android.currentContext.startActivity(browserIntent);              
+      Application.android.currentContext.startActivity(browserIntent);              
     }
   }
 
@@ -1037,7 +1039,7 @@ var MapView = (function (_super) {
 
     return new Promise(function(resolve, reject){
       
-      var geoCoder = new android.location.Geocoder(application.android.context, java.util.Locale.getDefault())
+      var geoCoder = new android.location.Geocoder(Application.android.context, java.util.Locale.getDefault())
       
       args.value = capitalize(args.value).replace(new RegExp(" ", 'g'), "");
 
@@ -1089,7 +1091,7 @@ var MapView = (function (_super) {
       cancelButtonText: "Cancelar"
     }).then(function (result) {                          
         if(result)
-          application.android.currentContext.startActivity(intent);
+          Application.android.currentContext.startActivity(intent);
     });        
   }
 
@@ -1103,7 +1105,7 @@ var MapView = (function (_super) {
       cancelButtonText: "Cancelar"
     }).then(function (result) {                          
         if(result)
-          application.android.currentContext.startActivity(intent);
+          Application.android.currentContext.startActivity(intent);
     });        
   }  
 
@@ -1120,23 +1122,23 @@ var MapView = (function (_super) {
         
           
         getInfoWindow: function(marker) {
-          var ctx = application.android.context
+          var ctx = Application.android.context
           var custom_info_window = ctx.getResources().getIdentifier('custom_info_window', "layout", ctx.getPackageName());
-          var mWindow = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
+          var mWindow = Application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_window, null);
           this.render(marker, mWindow);
           return mWindow;
         },
 
         getInfoContents: function(marker) {
-          var ctx = application.android.context
+          var ctx = Application.android.context
           var custom_info_contents = ctx.getResources().getIdentifier('custom_info_contents', "layout", ctx.getPackageName());
-          var mContents = application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
+          var mContents = Application.android.foregroundActivity.getLayoutInflater().inflate(custom_info_contents, null);
           this.render(marker, mContents);
           return mContents;
         },
 
         render: function(marker, view) {
-          var ctx = application.android.context
+          var ctx = Application.android.context
           var width = platformModule.screen.mainScreen.widthPixels
           var badge = null
 

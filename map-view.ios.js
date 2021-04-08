@@ -1,12 +1,8 @@
-var common = require("./map-view-common");
-var application = require('application')
-var route = require("./route");
-var colorModule = require("color");
-var Color = colorModule.Color;
-var platform = require('platform')
-var utils = require("utils/utils")
+import { Application, Color } from "@nativescript/core"
+import * from "./map-view-common"
+import {* as route} from "./route"
 
-require("utils/module-merge").merge(common, module.exports);
+export * from "./map-view-common"
 
 var onlyInitialPosition = false
 var _myLocationUpdateCallback 
@@ -49,8 +45,8 @@ var MapView = (function (_super) {
       self._ios.animateWithCameraUpdate(update);        
     }
 
-    console.log("## application.resumeEvent=" + application.resumeEvent)
-    application.on(application.resumeEvent, function(){
+    console.log("## Application.resumeEvent=" + Application.resumeEvent)
+    Application.on(Application.resumeEvent, function(){
       console.log("## onresume")
 
       if(self.locationManager){
@@ -60,7 +56,7 @@ var MapView = (function (_super) {
 
     })
 
-    application.on(application.suspendEvent, function(){
+    Application.on(Application.suspendEvent, function(){
       console.log("## onsuspend")
 
       if(self.locationManager){
